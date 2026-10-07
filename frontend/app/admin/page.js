@@ -1,0 +1,225 @@
+import Link from "next/link";
+import { formatPrice } from "@/lib/format";
+import {
+  DollarSign,
+  ShoppingBag,
+  Package,
+  AlertTriangle,
+  TrendingUp,
+  ArrowRight,
+  PlusCircle,
+  ExternalLink,
+} from "lucide-react";
+
+export const metadata = {
+  title: "Admin Dashboard Overview",
+  description: "Real-time statistics and overview of store performance.",
+};
+
+export default function AdminDashboardPage() {
+  const stats = [
+    {
+      title: "Today's Revenue",
+      value: formatPrice(18500),
+      trend: "+12.5% from yesterday",
+      icon: DollarSign,
+      color: "bg-emerald-500 text-white",
+    },
+    {
+      title: "Today's Orders",
+      value: "8 Orders",
+      trend: "5 pending dispatch",
+      icon: ShoppingBag,
+      color: "bg-amber-500 text-white",
+    },
+    {
+      title: "Total Active Products",
+      value: "24 Items",
+      trend: "Across 5 categories",
+      icon: Package,
+      color: "bg-blue-500 text-white",
+    },
+    {
+      title: "Low Stock Alerts",
+      value: "3 Items",
+      trend: "Needs replenishment",
+      icon: AlertTriangle,
+      color: "bg-rose-500 text-white",
+    },
+  ];
+
+  const recentOrders = [
+    {
+      id: "APX-892104",
+      customer: "Tanvir Ahmed",
+      phone: "01711223344",
+      total: 3700,
+      status: "Processing",
+      items: 2,
+      time: "15 mins ago",
+    },
+    {
+      id: "APX-892103",
+      customer: "Farhana Yasmin",
+      phone: "01822334455",
+      total: 1850,
+      status: "Pending",
+      items: 1,
+      time: "1 hour ago",
+    },
+    {
+      id: "APX-892102",
+      customer: "Mahfuz Khan",
+      phone: "01933445566",
+      total: 4500,
+      status: "Confirmed",
+      items: 1,
+      time: "3 hours ago",
+    },
+    {
+      id: "APX-892101",
+      customer: "Sadia Islam",
+      phone: "01644556677",
+      total: 2950,
+      status: "Delivered",
+      items: 2,
+      time: "Yesterday",
+    },
+  ];
+
+  return (
+    <div className="space-y-8">
+      {/* Welcome Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            Dashboard Overview
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Welcome back! Here is what&apos;s happening across your storefront today.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/products/create"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors shadow-xs"
+          >
+            <PlusCircle className="w-4 h-4 text-amber-400" />
+            <span>Add New Product</span>
+          </Link>
+          <Link
+            href="/admin/theme"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <span>Theme & Colors</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Stats KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((s, idx) => {
+          const Icon = s.icon;
+          return (
+            <div
+              key={idx}
+              className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex items-start justify-between"
+            >
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  {s.title}
+                </p>
+                <h3 className="text-2xl font-black text-slate-900 mt-1">
+                  {s.value}
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1 font-medium">
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>{s.trend}</span>
+                </p>
+              </div>
+              <div className={`p-3 rounded-lg ${s.color} shrink-0`}>
+                <Icon className="w-5 h-5" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Recent Orders Section */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">
+              Recent Customer Orders
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Live incoming orders from the customer storefront
+            </p>
+          </div>
+          <Link
+            href="/admin/orders"
+            className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700"
+          >
+            <span>View All Orders</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-bold tracking-wider">
+              <tr>
+                <th className="py-3 px-4">Order ID</th>
+                <th className="py-3 px-4">Customer</th>
+                <th className="py-3 px-4">Phone</th>
+                <th className="py-3 px-4">Items</th>
+                <th className="py-3 px-4">Total</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+              {recentOrders.map((ord) => (
+                <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                    {ord.id}
+                  </td>
+                  <td className="py-3 px-4">{ord.customer}</td>
+                  <td className="py-3 px-4 font-mono">{ord.phone}</td>
+                  <td className="py-3 px-4">{ord.items} item(s)</td>
+                  <td className="py-3 px-4 font-bold text-slate-900">
+                    {formatPrice(ord.total)}
+                  </td>
+                  <td className="py-3 px-4">
+                    <span
+                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        ord.status === "Delivered"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : ord.status === "Processing"
+                          ? "bg-blue-100 text-blue-800"
+                          : ord.status === "Confirmed"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-slate-100 text-slate-800"
+                      }`}
+                    >
+                      {ord.status}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <Link
+                      href={`/admin/orders`}
+                      className="font-bold text-amber-600 hover:underline"
+                    >
+                      Manage
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
