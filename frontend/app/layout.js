@@ -39,8 +39,9 @@ export default async function RootLayout({ children }) {
   const categories = categoriesRes?.data || [];
 
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans bg-bg text-text">
+    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+      <body className="min-h-full flex flex-col font-sans bg-bg text-text" suppressHydrationWarning>
+
         <StoreProvider store={store} initialCategories={categories}>
           <AuthProvider>
             <CartProvider>

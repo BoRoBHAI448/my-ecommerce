@@ -13,6 +13,8 @@ import { TrustBadges } from "@/components/home/TrustBadges";
 import { Newsletter } from "@/components/home/Newsletter";
 
 export default async function HomePage() {
+
+
   const [bannersRes, categoriesRes, brandsRes, featuredRes, newArrivalsRes] =
     await Promise.all([
       getBanners(),
