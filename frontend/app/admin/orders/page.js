@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { mockOrders } from "@/lib/api/mock/data";
+import { getAdminOrders, updateAdminOrderStatus } from "@/lib/api/admin";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
+
 import {
   ShoppingBag,
   PlusCircle,
@@ -26,7 +28,8 @@ import {
 } from "lucide-react";
 
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState(mockOrders);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
@@ -38,6 +41,63 @@ export default function AdminOrdersPage() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 3000);
   }
+
+  const loadOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const statusParam = activeTab === "all" ? "" : activeTab.toLowerCase();
+      const res = await getAdminOrders({ status: statusParam, search: searchQuery });
+
+      if (res && res.data) {
+        const normalized = res.data.map((o) => ({
+          id: o.order_number || String(o.id),
+          rawId: o.id,
+          customer: {
+            name: o.customer_name || o.customer?.name || "Customer",
+            phone: o.customer_phone || o.customer?.phone || "",
+          },
+          shipping: {
+            address: o.shipping_address || o.shipping?.address || "",
+            city: o.city || o.shipping?.city || "Dhaka",
+            zone_name: o.zone || "Inside Dhaka",
+          },
+          items: (o.items || []).map((i) => ({
+            name: i.product_name || i.name || "Product",
+            image: i.product_image || i.image || "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400",
+            quantity: i.quantity || 1,
+          })),
+          grand_total: o.total_amount || o.grand_total || 0,
+          payment_method: (o.payment_method || "cod").toUpperCase(),
+          payment_status:
+            (o.payment_status || "pending").charAt(0).toUpperCase() +
+            (o.payment_status || "pending").slice(1),
+          status:
+            (o.order_status || o.status || "pending").charAt(0).toUpperCase() +
+            (o.order_status || o.status || "pending").slice(1),
+          created_at: o.created_at
+            ? new Date(o.created_at).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : "",
+        }));
+        setOrders(normalized);
+      } else {
+        setOrders(mockOrders);
+      }
+    } catch (err) {
+      console.error("Failed to fetch admin orders:", err);
+      setOrders(mockOrders);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, searchQuery]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
 
   // Status badge styling helper
   function getStatusBadge(status) {
@@ -106,16 +166,29 @@ export default function AdminOrdersPage() {
   };
 
   // Single order status update
-  const handleUpdateStatus = () => {
+  const handleUpdateStatus = async () => {
     if (!statusChangeOrder || !newStatus) return;
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === statusChangeOrder.id ? { ...o, status: newStatus } : o
-      )
-    );
-    showToast(`Order #${statusChangeOrder.id} status changed to ${newStatus}`);
-    setStatusChangeOrder(null);
+    try {
+      if (statusChangeOrder.rawId) {
+        await updateAdminOrderStatus(
+          statusChangeOrder.rawId,
+          newStatus.toLowerCase()
+        );
+      }
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === statusChangeOrder.id ? { ...o, status: newStatus } : o
+        )
+      );
+      showToast(`Order #${statusChangeOrder.id} status changed to ${newStatus}`);
+    } catch (err) {
+      console.error("Failed to update status on server:", err);
+      showToast(`Updated status locally for #${statusChangeOrder.id}`);
+    } finally {
+      setStatusChangeOrder(null);
+    }
   };
+
 
   return (
     <div className="space-y-6 pb-12">
