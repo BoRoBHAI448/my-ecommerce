@@ -13,6 +13,7 @@ import { useStore } from "@/lib/store-context";
 import { useRequireAuth } from "@/lib/auth-context";
 import { formatPrice } from "@/lib/format";
 import { isValidBDPhone } from "@/lib/validators";
+import { createOrder, saveIncompleteOrder } from "@/lib/api/orders";
 import { ShieldCheck, Truck, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 
 export default function CheckoutPage() {
@@ -86,35 +87,68 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
 
-    // Simulate placing order
-    setTimeout(() => {
-      setSubmitting(false);
-      const generatedOrderNumber = `APX-${Date.now().toString().slice(-6)}`;
+    const payload = {
+      customer_name: form.name.trim(),
+      customer_phone: form.phone.trim(),
+      customer_email: form.email ? form.email.trim() : null,
+      shipping_address: form.address.trim(),
+      city: form.district || "Dhaka",
+      zone:
+        form.zone === "inside_dhaka"
+          ? "Inside Dhaka"
+          : form.zone === "sub_dhaka"
+          ? "Dhaka Suburbs"
+          : "Outside Dhaka",
+      payment_method: "cod",
+      notes: form.note || null,
+      shipping_cost: appliedDeliveryFee,
+      items: items.map((item) => ({
+        product_id: Number(item.productId),
+        product_variant_id: item.variantId ? Number(item.variantId) : null,
+        quantity: Number(item.quantity),
+      })),
+    };
 
-      // Save order snapshot in sessionStorage for success/tracking screens
-      const orderData = {
-        orderNumber: generatedOrderNumber,
-        customer: form,
-        items,
-        subtotal,
-        discount,
-        deliveryFee: appliedDeliveryFee,
-        total: grandTotal,
-        paymentMethod: "Cash on Delivery",
-        status: "Pending",
-        createdAt: new Date().toISOString(),
-      };
+    try {
+      const res = await createOrder(payload);
 
-      try {
-        sessionStorage.setItem(`order_${generatedOrderNumber}`, JSON.stringify(orderData));
-      } catch (err) {
-        // Safe fallback
+      if (res && res.success && res.data) {
+        const createdOrder = res.data;
+        const generatedOrderNumber = createdOrder.order_number;
+
+        // Save order snapshot in sessionStorage for success/tracking screens
+        const orderData = {
+          orderNumber: generatedOrderNumber,
+          customer: form,
+          items,
+          subtotal,
+          discount,
+          deliveryFee: appliedDeliveryFee,
+          total: createdOrder.total_amount || grandTotal,
+          paymentMethod: "Cash on Delivery",
+          status: "Pending",
+          createdAt: createdOrder.created_at || new Date().toISOString(),
+        };
+
+        try {
+          sessionStorage.setItem(`order_${generatedOrderNumber}`, JSON.stringify(orderData));
+        } catch (err) {
+          // Safe fallback
+        }
+
+        clearCart();
+        router.push(`/order-success/${generatedOrderNumber}`);
+      } else {
+        alert(res?.message || "Failed to place order. Please check your information and try again.");
       }
-
-      clearCart();
-      router.push(`/order-success/${generatedOrderNumber}`);
-    }, 800);
+    } catch (err) {
+      console.error("Checkout submission error:", err);
+      alert(err.message || "Failed to place order. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
+
 
   if (!isHydrated) return null;
 

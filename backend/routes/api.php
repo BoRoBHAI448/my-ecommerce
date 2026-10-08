@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\BannerController;
+use App\Http\Controllers\Api\V1\OrderController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -31,4 +32,9 @@ Route::prefix('v1')->group(function () {
 
     // Banners
     Route::get('/banners', [BannerController::class, 'index']);
+
+    // Orders & Checkout
+    Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders/{orderNumber}', [OrderController::class, 'show']);
+    Route::post('/orders/incomplete', [OrderController::class, 'incomplete']);
 });
