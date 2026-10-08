@@ -5,6 +5,10 @@ import { ProductView } from "@/components/product/ProductView";
 import { ReviewsSection } from "@/components/product/ReviewsSection";
 import { RelatedProducts } from "@/components/product/RelatedProducts";
 
+// Allow blocking on params (Next.js 16+ instant shell opt-out)
+export const instant = false;
+
+
 export async function generateMetadata(props) {
   const params = await props.params;
   const productRes = await getProductBySlug(params.slug);

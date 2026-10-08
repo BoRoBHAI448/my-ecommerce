@@ -6,6 +6,9 @@ import { ActiveFilters } from "@/components/shop/ActiveFilters";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { Pagination } from "@/components/shop/Pagination";
 
+// This page reads searchParams and does blocking data fetching — instant nav is intentionally disabled.
+export const instant = false;
+
 export const metadata = {
   title: "Shop All Collections",
   description: "Browse our complete catalog of curated apparel, leather accessories, and footwear.",

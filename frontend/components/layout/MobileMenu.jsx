@@ -34,21 +34,40 @@ export function MobileMenu({ isOpen, onClose, categories = [] }) {
         {/* Categories List */}
         <div>
           <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
-            Categories
+            Categories & Sub-Departments
           </h4>
           <div className="space-y-1">
             {categories.map((cat) => (
-              <Link
-                key={cat.id}
-                href={`/category/${cat.slug}`}
-                onClick={onClose}
-                className="flex items-center justify-between py-2 text-sm text-text hover:text-secondary transition-colors"
-              >
-                <span>{cat.name}</span>
-                <span className="text-xs text-text-muted">
-                  {cat.children?.length > 0 && `${cat.children.length} sub`}
-                </span>
-              </Link>
+              <div key={cat.id} className="border-b border-border/40 pb-1">
+                <div className="flex items-center justify-between">
+                  <Link
+                    href={`/category/${cat.slug}`}
+                    onClick={onClose}
+                    className="flex-1 py-2 text-sm font-semibold text-text hover:text-secondary transition-colors"
+                  >
+                    {cat.name}
+                  </Link>
+                  {cat.children?.length > 0 && (
+                    <span className="text-[10px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-full">
+                      {cat.children.length} sub
+                    </span>
+                  )}
+                </div>
+                {cat.children?.length > 0 && (
+                  <div className="pl-3 pb-1 space-y-1 border-l-2 border-border/60 ml-1">
+                    {cat.children.map((sub) => (
+                      <Link
+                        key={sub.id}
+                        href={`/category/${sub.slug}`}
+                        onClick={onClose}
+                        className="block py-1 text-xs text-text-muted hover:text-primary transition-colors font-medium"
+                      >
+                        {sub.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </div>

@@ -7,6 +7,8 @@ import { ActiveFilters } from "@/components/shop/ActiveFilters";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { Pagination } from "@/components/shop/Pagination";
 
+export const instant = false;
+
 export async function generateMetadata(props) {
   const params = await props.params;
   const brandsRes = await getBrands();

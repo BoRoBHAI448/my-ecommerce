@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { getStore, getCategories } from "@/lib/api/storefront";
 import { StoreProvider } from "@/lib/store-context";
 import { CartProvider } from "@/lib/cart/cart-context";
+import { AuthProvider } from "@/lib/auth-context";
 import { StorefrontShell } from "@/components/layout/StorefrontShell";
 
 const inter = Inter({
@@ -39,12 +41,16 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans bg-bg text-text">
-        <StoreProvider store={store}>
-          <CartProvider>
-            <StorefrontShell store={store} categories={categories}>
-              {children}
-            </StorefrontShell>
-          </CartProvider>
+        <StoreProvider store={store} initialCategories={categories}>
+          <AuthProvider>
+            <CartProvider>
+              <Suspense fallback={<main className="flex-1">{children}</main>}>
+                <StorefrontShell store={store} categories={categories}>
+                  {children}
+                </StorefrontShell>
+              </Suspense>
+            </CartProvider>
+          </AuthProvider>
         </StoreProvider>
       </body>
     </html>

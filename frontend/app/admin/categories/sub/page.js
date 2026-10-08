@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useStore } from "@/lib/store-context";
 import { mockCategories } from "@/lib/api/mock/data";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { FolderTree, PlusCircle, Trash2, Check } from "lucide-react";
 
 export default function AdminSubCategoriesPage() {
-  const [categories, setCategories] = useState(mockCategories);
+  const { categories: storeCategories, updateCategories } = useStore();
+  const [categories, setCategories] = useState(
+    storeCategories?.length ? storeCategories : mockCategories
+  );
+
+  useEffect(() => {
+    if (storeCategories?.length) {
+      setCategories(storeCategories);
+    }
+  }, [storeCategories]);
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [parentCatId, setParentCatId] = useState(
-    mockCategories[0]?.id?.toString() || ""
+    categories[0]?.id?.toString() || ""
   );
   const [subName, setSubName] = useState("");
   const [subSlug, setSubSlug] = useState("");
@@ -39,22 +50,25 @@ export default function AdminSubCategoriesPage() {
     e.preventDefault();
     if (!subName.trim() || !parentCatId) return;
 
-    setCategories((prev) =>
-      prev.map((cat) => {
-        if (cat.id === Number(parentCatId)) {
-          const newChild = {
-            id: Date.now(),
-            name: subName,
-            slug: subSlug,
-          };
-          return {
-            ...cat,
-            children: [...(cat.children || []), newChild],
-          };
-        }
-        return cat;
-      })
-    );
+    const updated = categories.map((cat) => {
+      if (cat.id === Number(parentCatId)) {
+        const newChild = {
+          id: Date.now(),
+          name: subName,
+          slug: subSlug,
+        };
+        return {
+          ...cat,
+          children: [...(cat.children || []), newChild],
+        };
+      }
+      return cat;
+    });
+
+    setCategories(updated);
+    if (typeof updateCategories === "function") {
+      updateCategories(updated);
+    }
 
     setSubName("");
     setSubSlug("");
@@ -65,17 +79,20 @@ export default function AdminSubCategoriesPage() {
 
   function handleDeleteSubCategory(parentId, childId) {
     if (confirm("Remove this sub-category?")) {
-      setCategories((prev) =>
-        prev.map((cat) => {
-          if (cat.id === parentId) {
-            return {
-              ...cat,
-              children: (cat.children || []).filter((c) => c.id !== childId),
-            };
-          }
-          return cat;
-        })
-      );
+      const updated = categories.map((cat) => {
+        if (cat.id === parentId) {
+          return {
+            ...cat,
+            children: (cat.children || []).filter((c) => c.id !== childId),
+          };
+        }
+        return cat;
+      });
+
+      setCategories(updated);
+      if (typeof updateCategories === "function") {
+        updateCategories(updated);
+      }
     }
   }
 

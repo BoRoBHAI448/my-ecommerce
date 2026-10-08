@@ -10,14 +10,25 @@ import { Select } from "@/components/ui/Select";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { useCart } from "@/lib/cart/cart-context";
 import { useStore } from "@/lib/store-context";
+import { useRequireAuth } from "@/lib/auth-context";
 import { formatPrice } from "@/lib/format";
 import { isValidBDPhone } from "@/lib/validators";
-import { ShieldCheck, Truck, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Truck, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useRequireAuth(); // 👈 guard: redirects to /login if not authenticated
   const { items, subtotal, discount, clearCart, isHydrated } = useCart();
   const store = useStore();
+
+  // Show spinner while restoring auth session or while redirecting
+  if (authLoading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const [form, setForm] = useState({
     name: "",

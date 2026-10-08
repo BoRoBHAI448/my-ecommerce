@@ -1,8 +1,27 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Phone, Mail, MapPin, Clock, ShieldCheck, Truck, RefreshCw, Headphones } from "lucide-react";
+import { useStore } from "@/lib/store-context";
 
-export function Footer({ store, categories = [] }) {
-  const currentYear = 2026;
+export function Footer({ store: propStore, categories: propCategories = [] }) {
+  const contextStore = useStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // After mount, prefer the live context store (has localStorage overrides);
+  // before mount, fall back to the prop from the server to avoid hydration mismatch.
+  const store    = mounted ? (contextStore || propStore) : propStore;
+  const categories = mounted && contextStore?.categories?.length
+    ? contextStore.categories
+    : propCategories;
+
+  const currentYear = new Date().getFullYear();
+  // store is already propStore (server) before mount, contextStore after — no extra guard needed
+  const storeName = store?.name || "Apex Cart";
+  const storeInitial = store?.name?.charAt(0)?.toUpperCase() || "A";
 
   return (
     <footer className="bg-slate-900 text-slate-300 pt-16 pb-8 border-t border-slate-800">
@@ -52,16 +71,23 @@ export function Footer({ store, categories = [] }) {
           {/* Col 1: Store Brand & Bio */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-theme bg-white text-slate-900 flex items-center justify-center font-black text-xl">
-                {store?.name ? store.name.charAt(0) : "A"}
-              </div>
+              {store?.logo && store.logo !== "/logo.png" ? (
+                <img
+                  src={store.logo}
+                  alt={storeName}
+                  className="w-9 h-9 rounded-full object-contain bg-white p-0.5 shrink-0"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-theme bg-white text-slate-900 flex items-center justify-center font-black text-xl shrink-0">
+                  {storeInitial}
+                </div>
+              )}
               <span className="font-extrabold text-xl text-white tracking-tight">
-                {store?.name || "Apex Cart"}
+                {storeName}
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-400 max-w-sm leading-relaxed">
-              {store?.tagline ||
-                "Your premier destination for curated fashion, authentic lifestyle accessories, and premium daily essentials."}
+              {store?.tagline || "Your premier destination for curated fashion, authentic lifestyle accessories, and premium daily essentials."}
             </p>
             {store?.contact?.hours && (
               <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -175,7 +201,7 @@ export function Footer({ store, categories = [] }) {
         {/* Bottom Bar: Copyright & Payment Badges */}
         <div className="pt-8 mt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <p>
-            &copy; {currentYear} {store?.name || "Apex Cart"}. All rights reserved. Built with Next.js.
+            &copy; {currentYear} {storeName}. All rights reserved.
           </p>
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium text-slate-400">Accepted Payments:</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStore } from "@/lib/store-context";
@@ -27,6 +27,12 @@ import { cn } from "@/lib/utils";
 export default function AdminLayout({ children }) {
   const pathname = usePathname();
   const store = useStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [openSubmenu, setOpenSubmenu] = useState({
     "Category Hub": true,
@@ -124,24 +130,41 @@ export default function AdminLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="h-screen flex overflow-hidden bg-slate-50">
+      {/* Mobile Backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={cn(
-          "bg-slate-900 text-slate-300 flex flex-col shrink-0 transition-all duration-300 z-50 fixed inset-y-0 left-0 lg:static",
+          "bg-slate-900 text-slate-300 flex flex-col shrink-0 h-full transition-all duration-300 z-50 fixed inset-y-0 left-0 lg:static",
           sidebarOpen ? "w-64" : "w-20 lg:w-20 -translate-x-full lg:translate-x-0"
         )}
       >
         {/* Brand Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
           <Link href="/admin" className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 rounded-lg bg-amber-500 text-slate-950 font-black flex items-center justify-center shrink-0">
-              {store?.name ? store.name.charAt(0) : "A"}
-            </div>
+            {/* Logo: stable placeholder until mounted to prevent hydration mismatch */}
+            {mounted && store?.logo && store.logo !== "/logo.png" ? (
+              <img
+                src={store.logo}
+                alt={store?.name || "Logo"}
+                className="w-10 h-10 rounded-full object-contain bg-white p-0.5 ring-2 ring-white/20 shrink-0"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-lg bg-amber-500 text-slate-950 font-black flex items-center justify-center shrink-0">
+                {mounted ? (store?.name ? store.name.charAt(0).toUpperCase() : "A") : "A"}
+              </div>
+            )}
             {sidebarOpen && (
               <div className="flex flex-col truncate">
                 <span className="font-bold text-sm text-white truncate">
-                  {store?.name || "Apex Admin"}
+                  {mounted ? (store?.name || "Apex Admin") : "Apex Admin"}
                 </span>
                 <span className="text-[10px] text-slate-400">Store Manager</span>
               </div>
@@ -241,9 +264,9 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Topbar */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 shadow-2xs">
+        <header className="h-16 shrink-0 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 z-30 shadow-2xs">
           <div className="flex items-center gap-3">
             <button
               type="button"

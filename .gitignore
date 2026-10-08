@@ -11,10 +11,19 @@ dist/
 
 # Environment variables
 .env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+backend/.env
+backend/.env.*
+
+# PHP / Composer
+vendor/
+backend/vendor/
+backend/storage/*.key
+
 
 # Debug logs
 npm-debug.log*

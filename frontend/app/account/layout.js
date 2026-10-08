@@ -1,13 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
-import { ShoppingBag, User, LogOut, PackageCheck } from "lucide-react";
+import { useAuth, useRequireAuth } from "@/lib/auth-context";
+import { ShoppingBag, User, LogOut, PackageCheck, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function AccountLayout({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
+  const { user, loading } = useRequireAuth();
+
+  if (loading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const links = [
     { label: "My Orders", href: "/account/orders", icon: ShoppingBag },
@@ -53,13 +65,14 @@ export default function AccountLayout({ children }) {
           })}
 
           <div className="pt-2 border-t border-border/60">
-            <Link
-              href="/"
-              className="flex items-center gap-3 px-3.5 py-2.5 rounded-theme text-xs sm:text-sm font-semibold text-danger hover:bg-red-50 transition-colors"
+            <button
+              type="button"
+              onClick={() => { logout(); router.push("/"); }}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-theme text-xs sm:text-sm font-semibold text-danger hover:bg-red-50 transition-colors"
             >
               <LogOut className="w-4 h-4 shrink-0" />
               <span>Log Out</span>
-            </Link>
+            </button>
           </div>
         </div>
 

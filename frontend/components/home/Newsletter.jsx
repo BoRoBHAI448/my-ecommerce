@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useStore } from "@/lib/store-context";
@@ -10,6 +10,13 @@ export function Newsletter() {
   const store = useStore();
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // Stable values for server + first paint; real values after mount
+  const storeName = mounted ? (store?.name || "Apex") : "Apex";
+  const whatsapp  = mounted ? store?.whatsapp : null;
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -25,7 +32,7 @@ export function Newsletter() {
         </div>
 
         <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-          Join the {store?.name || "Apex"} Circle
+          Join the {storeName} Circle
         </h2>
 
         <p className="text-xs sm:text-sm text-slate-300 max-w-lg mx-auto leading-relaxed">
@@ -61,11 +68,11 @@ export function Newsletter() {
           </form>
         )}
 
-        {store?.whatsapp && (
+        {whatsapp && (
           <div className="pt-4 border-t border-white/10 flex items-center justify-center gap-2 text-xs text-slate-300">
             <span>Prefer quick updates?</span>
             <a
-              href={`https://wa.me/${store.whatsapp.replace(/[^0-9]/g, "")}`}
+              href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, "")}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-secondary font-bold hover:underline"

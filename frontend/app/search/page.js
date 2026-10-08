@@ -7,6 +7,8 @@ import { ProductGrid } from "@/components/product/ProductGrid";
 import { Pagination } from "@/components/shop/Pagination";
 import { Search } from "lucide-react";
 
+export const instant = false;
+
 export async function generateMetadata(props) {
   const searchParams = await props.searchParams;
   const q = searchParams?.q || "";

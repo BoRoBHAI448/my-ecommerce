@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store-context";
 import { useCart } from "@/lib/cart/cart-context";
+import { useAuth } from "@/lib/auth-context";
 import { MobileMenu } from "./MobileMenu";
 import {
   Search,
@@ -13,11 +14,20 @@ import {
   Menu,
   ChevronDown,
   PhoneCall,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function Header({ categories = [] }) {
+export function Header({ categories: propCategories = [] }) {
   const store = useStore();
+  const { user, logout } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const categories = (mounted && store?.categories?.length) ? store.categories : propCategories;
   const { itemCount, toggleDrawer } = useCart();
   const router = useRouter();
 
@@ -63,16 +73,27 @@ export function Header({ categories = [] }) {
                 <Menu className="w-6 h-6" />
               </button>
 
-              <Link href="/" className="flex items-center gap-2 group">
-                <div className="w-9 h-9 rounded-theme bg-primary flex items-center justify-center text-primary-contrast font-black text-xl tracking-tighter shadow-sm group-hover:scale-105 transition-transform">
-                  {store?.name ? store.name.charAt(0) : "Ligglo Fashion Zone"}
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-extrabold text-lg sm:text-xl text-text tracking-tight leading-none">
-                    {store?.name || "Ligglo Fashion Zone"}
+              <Link href="/" className="flex items-center gap-2 group min-w-0">
+                {/* Logo / Brand icon — only render dynamic content after mount to prevent hydration mismatch */}
+                {mounted && store?.logo && store.logo !== "/logo.png" ? (
+                  <img
+                    src={store.logo}
+                    alt={store?.name || "Store Logo"}
+                    className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 rounded-full object-cover ring-2 ring-primary/20 shadow-sm group-hover:scale-105 transition-transform"
+                  />
+                ) : (
+                  <div className="w-9 h-9 shrink-0 rounded-theme bg-primary flex items-center justify-center text-primary-contrast font-black text-xl tracking-tighter shadow-sm group-hover:scale-105 transition-transform">
+                    {/* Keep the letter stable: only use store name after mount */}
+                    {mounted ? (store?.name ? store.name.charAt(0).toUpperCase() : "A") : "A"}
+                  </div>
+                )}
+                <div className="flex flex-col min-w-0">
+                  <span className="font-extrabold text-base sm:text-lg text-text tracking-tight leading-none whitespace-nowrap truncate max-w-[120px] sm:max-w-[160px]">
+                    {/* Stable fallback on server; real name after mount */}
+                    {mounted ? (store?.name || "Apex Cart") : "Apex Cart"}
                   </span>
-                  {store?.tagline && (
-                    <span className="text-[10px] text-text-muted hidden sm:inline-block leading-tight font-medium mt-0.5">
+                  {mounted && store?.tagline && (
+                    <span className="text-[10px] text-text-muted hidden 2xl:inline-block leading-tight font-medium mt-0.5 truncate max-w-[160px]">
                       {store.tagline}
                     </span>
                   )}
@@ -95,8 +116,8 @@ export function Header({ categories = [] }) {
                 Shop All
               </Link>
 
-              {/* Categories Dropdown / Mega Menu */}
-              {categories.slice(0, 4).map((cat) => (
+              {/* Dynamic Categories Dropdown Menu */}
+              {categories.slice(0, 5).map((cat) => (
                 <div
                   key={cat.id}
                   className="relative group"
@@ -113,11 +134,11 @@ export function Header({ categories = [] }) {
                     )}
                   </Link>
 
-                  {/* Dropdown Menu */}
+                  {/* Subcategories Dropdown */}
                   {cat.children?.length > 0 && (
                     <div
                       className={cn(
-                        "absolute top-full left-0 w-56 rounded-theme bg-surface shadow-xl border border-border p-2 z-50 transition-all duration-200",
+                        "absolute top-full left-0 min-w-56 rounded-theme bg-surface shadow-xl border border-border/80 p-2 z-50 transition-all duration-200",
                         activeDropdown === cat.id
                           ? "opacity-100 visible translate-y-0"
                           : "opacity-0 invisible translate-y-2 pointer-events-none"
@@ -144,6 +165,58 @@ export function Header({ categories = [] }) {
                   )}
                 </div>
               ))}
+
+              {/* Overflow 'More Categories' if more than 5 */}
+              {categories.length > 5 && (
+                <div
+                  className="relative group"
+                  onMouseEnter={() => setActiveDropdown("more_cats")}
+                  onMouseLeave={() => setActiveDropdown(null)}
+                >
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-text hover:text-secondary transition-colors py-2"
+                  >
+                    <span>More</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-text-muted group-hover:rotate-180 transition-transform duration-200" />
+                  </button>
+
+                  <div
+                    className={cn(
+                      "absolute top-full right-0 min-w-60 rounded-theme bg-surface shadow-xl border border-border/80 p-2 z-50 transition-all duration-200",
+                      activeDropdown === "more_cats"
+                        ? "opacity-100 visible translate-y-0"
+                        : "opacity-0 invisible translate-y-2 pointer-events-none"
+                    )}
+                  >
+                    <div className="space-y-1">
+                      {categories.slice(5).map((cat) => (
+                        <div key={cat.id} className="border-b border-border/40 last:border-b-0 pb-1 mb-1">
+                          <Link
+                            href={`/category/${cat.slug}`}
+                            className="block px-3 py-1.5 text-xs font-bold text-text hover:text-primary hover:bg-muted rounded-theme"
+                          >
+                            {cat.name}
+                          </Link>
+                          {cat.children?.length > 0 && (
+                            <div className="pl-5 space-y-0.5 pt-0.5">
+                              {cat.children.map((sub) => (
+                                <Link
+                                  key={sub.id}
+                                  href={`/category/${sub.slug}`}
+                                  className="block px-2 py-1 text-[11px] text-text-muted hover:text-text hover:bg-muted/80 rounded-theme"
+                                >
+                                  {sub.name}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </nav>
 
             {/* Search Bar (Desktop) */}
@@ -163,24 +236,65 @@ export function Header({ categories = [] }) {
             {/* Action Buttons (Help, Account, Cart) */}
             <div className="flex items-center gap-1 sm:gap-2">
               {/* Help hotline (hidden on small) */}
-              {store?.contact?.phone && (
+              {mounted && store?.contact?.phone && (
                 <a
                   href={`tel:${store.contact.phone}`}
-                  className="hidden xl:flex items-center gap-2 px-2.5 py-1.5 rounded-theme text-xs font-medium text-text-muted hover:text-text hover:bg-muted transition-colors mr-1"
+                  className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-theme text-xs font-medium text-text-muted hover:text-text hover:bg-muted transition-colors mr-1 whitespace-nowrap shrink-0"
                 >
-                  <PhoneCall className="w-3.5 h-3.5 text-secondary" />
+                  <PhoneCall className="w-3.5 h-3.5 text-secondary shrink-0" />
                   <span>{store.contact.phone}</span>
                 </a>
               )}
 
-              {/* Account */}
-              <Link
-                href="/account/orders"
-                className="p-2 rounded-theme text-text hover:bg-muted transition-colors"
-                aria-label="User Account"
-              >
-                <User className="w-5 h-5 sm:w-6 sm:h-6" />
-              </Link>
+              {/* Account / Auth */}
+              {mounted ? (
+                user ? (
+                  // Logged in: show name + logout dropdown
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 p-2 rounded-theme text-text hover:bg-muted transition-colors"
+                      aria-label="Account menu"
+                    >
+                      <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-primary-contrast text-xs font-black">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="hidden sm:inline text-xs font-semibold max-w-[80px] truncate">
+                        {user.name.split(" ")[0]}
+                      </span>
+                      <ChevronDown className="w-3 h-3 text-text-muted" />
+                    </button>
+                    {/* Dropdown */}
+                    <div className="absolute right-0 top-full mt-1 min-w-44 rounded-theme bg-surface shadow-xl border border-border/80 p-1.5 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150">
+                      <Link
+                        href="/account/orders"
+                        className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text hover:bg-muted rounded-theme"
+                      >
+                        <User className="w-3.5 h-3.5" /> My Account
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => logout()}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-danger hover:bg-red-50 rounded-theme"
+                      >
+                        <LogOut className="w-3.5 h-3.5" /> Log Out
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // Logged out: Login link
+                  <Link
+                    href="/login"
+                    className="p-2 rounded-theme text-text hover:bg-muted transition-colors"
+                    aria-label="Login"
+                  >
+                    <User className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </Link>
+                )
+              ) : (
+                // Pre-mount placeholder — matches server render
+                <div className="w-9 h-9" />
+              )}
 
               {/* Cart Drawer Trigger */}
               <button

@@ -1,12 +1,18 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useStore } from "@/lib/store-context";
 import { MessageCircle } from "lucide-react";
 
 export function WhatsAppButton() {
   const store = useStore();
+  const [mounted, setMounted] = useState(false);
 
-  if (!store?.whatsapp) {
+  useEffect(() => { setMounted(true); }, []);
+
+  // Don't render until client-side so href (which includes store.name)
+  // is identical on server and first paint — prevents hydration mismatch.
+  if (!mounted || !store?.whatsapp) {
     return null;
   }
 
