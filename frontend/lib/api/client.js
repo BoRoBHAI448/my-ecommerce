@@ -8,18 +8,27 @@ const DEFAULT_STORE_DOMAIN = process.env.DEFAULT_STORE_DOMAIN || "test.local";
  * @returns {string}
  */
 export async function getStoreDomain() {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host && host !== "localhost" && host !== "127.0.0.1") {
+      return host;
+    }
+    return DEFAULT_STORE_DOMAIN;
+  }
+
   try {
     const headersList = await headers();
-    const host = headersList.get("host") || "";
+    const host = headersList?.get ? headersList.get("host") || "" : "";
     const cleanHost = host.split(":")[0];
     if (cleanHost && cleanHost !== "localhost" && cleanHost !== "127.0.0.1") {
       return cleanHost;
     }
   } catch (err) {
-    // When called outside request context
+    // Fallback when called outside dynamic request context
   }
   return DEFAULT_STORE_DOMAIN;
 }
+
 
 /**
  * Core fetch wrapper sending X-Store-Domain and handling standard JSON envelope

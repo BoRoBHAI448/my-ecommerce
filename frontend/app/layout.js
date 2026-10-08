@@ -14,6 +14,8 @@ const inter = Inter({
 });
 
 export async function generateMetadata() {
+
+
   const storeRes = await getStore();
   const store = storeRes?.data || {};
 
