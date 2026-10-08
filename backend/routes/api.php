@@ -14,6 +14,8 @@ use App\Http\Controllers\Api\V1\AdminOrderController;
 use App\Http\Controllers\Api\V1\AdminProductController;
 use App\Http\Controllers\Api\V1\AdminCategoryController;
 use App\Http\Controllers\Api\V1\AdminStoreController;
+use App\Http\Controllers\Api\V1\CustomerAuthController;
+use App\Http\Controllers\Api\V1\ReviewController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -21,7 +23,7 @@ Route::get('/user', function (Request $request) {
 
 // ── API Version 1 Routes ──────────────────────────────
 Route::prefix('v1')->group(function () {
-    // ── Public Storefront Endpoints ───────────────────
+    // ── Storefront Public Endpoints ───────────────────
     Route::get('/store', [StoreController::class, 'show']);
 
     Route::get('/categories', [CategoryController::class, 'index']);
@@ -34,9 +36,24 @@ Route::prefix('v1')->group(function () {
     Route::get('/brands', [BrandController::class, 'index']);
     Route::get('/banners', [BannerController::class, 'index']);
 
+    // Reviews
+    Route::get('/products/{slug}/reviews', [ReviewController::class, 'index']);
+    Route::post('/products/{slug}/reviews', [ReviewController::class, 'store']);
+
+    // Orders & Checkout
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{orderNumber}', [OrderController::class, 'show']);
     Route::post('/orders/incomplete', [OrderController::class, 'incomplete']);
+
+    // ── Customer Auth & Account ───────────────────────
+    Route::post('/customer/register', [CustomerAuthController::class, 'register']);
+    Route::post('/customer/login', [CustomerAuthController::class, 'login']);
+
+    Route::prefix('customer')->middleware('auth:sanctum')->group(function () {
+        Route::get('/me', [CustomerAuthController::class, 'me']);
+        Route::get('/orders', [CustomerAuthController::class, 'orders']);
+        Route::post('/logout', [CustomerAuthController::class, 'logout']);
+    });
 
     // ── Admin Authentication ──────────────────────────
     Route::post('/admin/login', [AdminAuthController::class, 'login']);
