@@ -2,14 +2,18 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
+import { cn, getValidImageSrc } from "@/lib/utils";
+import { ImageOff } from "lucide-react";
 
 export function Gallery({ images = [], title = "Product" }) {
+  const rawList = Array.isArray(images) ? images : [images];
+  const validImages = rawList.map(getValidImageSrc).filter(Boolean);
+
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
-  const activeImage = images[selectedIndex] || images[0] || null;
+  const activeImage = validImages[selectedIndex] || validImages[0] || null;
 
   function handleMouseMove(e) {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -18,10 +22,11 @@ export function Gallery({ images = [], title = "Product" }) {
     setMousePosition({ x, y });
   }
 
-  if (!images || images.length === 0) {
+  if (validImages.length === 0) {
     return (
-      <div className="w-full aspect-square bg-muted rounded-theme flex items-center justify-center text-text-muted text-sm font-medium">
-        No images available
+      <div className="w-full aspect-square bg-muted/60 rounded-theme flex flex-col items-center justify-center text-text-muted text-sm font-medium border border-border/80 p-6 text-center">
+        <ImageOff className="w-10 h-10 mb-2 text-text-muted/60" />
+        <span>No image available</span>
       </div>
     );
   }
@@ -29,9 +34,9 @@ export function Gallery({ images = [], title = "Product" }) {
   return (
     <div className="flex flex-col-reverse sm:flex-row gap-4">
       {/* Thumbnails Column */}
-      {images.length > 1 && (
+      {validImages.length > 1 && (
         <div className="flex sm:flex-col gap-2.5 overflow-x-auto sm:overflow-y-auto max-h-[500px] shrink-0 pb-2 sm:pb-0 scrollbar-none">
-          {images.map((img, idx) => (
+          {validImages.map((imgUrl, idx) => (
             <button
               key={idx}
               type="button"
@@ -45,7 +50,7 @@ export function Gallery({ images = [], title = "Product" }) {
               aria-label={`View photo ${idx + 1}`}
             >
               <Image
-                src={img}
+                src={imgUrl}
                 alt={`${title} thumbnail ${idx + 1}`}
                 fill
                 sizes="80px"
@@ -87,3 +92,4 @@ export function Gallery({ images = [], title = "Product" }) {
     </div>
   );
 }
+

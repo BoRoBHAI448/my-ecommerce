@@ -301,10 +301,10 @@ export function Header({ categories: propCategories = [] }) {
                 type="button"
                 onClick={toggleDrawer}
                 className="relative p-2 rounded-theme text-text hover:bg-muted transition-colors"
-                aria-label={`Shopping bag with ${itemCount} items`}
+                aria-label={`Shopping bag with ${mounted ? itemCount : 0} items`}
               >
                 <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
-                {itemCount > 0 && (
+                {mounted && itemCount > 0 && (
                   <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-secondary text-secondary-contrast text-[11px] font-bold flex items-center justify-center animate-scaleIn shadow-xs">
                     {itemCount}
                   </span>

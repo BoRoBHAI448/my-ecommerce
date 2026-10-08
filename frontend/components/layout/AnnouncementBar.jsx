@@ -1,14 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store-context";
 
 export function AnnouncementBar() {
   const store = useStore();
   const [dismissed, setDismissed] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  if (!store?.announcement?.enabled || !store?.announcement?.text || dismissed) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || !store?.announcement?.enabled || !store?.announcement?.text || dismissed) {
     return null;
   }
 
@@ -31,3 +36,4 @@ export function AnnouncementBar() {
     </div>
   );
 }
+

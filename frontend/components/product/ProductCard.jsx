@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Rating } from "@/components/ui/Rating";
 import { formatPrice, getDiscountPercentage } from "@/lib/format";
 import { useCart } from "@/lib/cart/cart-context";
+import { getValidImageSrc } from "@/lib/utils";
 import { ShoppingBag, Check } from "lucide-react";
 import { useState } from "react";
 
@@ -18,6 +19,7 @@ export function ProductCard({ product }) {
   const currentPrice = product.discount_price || product.min_price || product.selling_price;
   const originalPrice = product.has_discount ? product.selling_price || product.max_price : null;
   const discountLabel = getDiscountPercentage(originalPrice, currentPrice);
+  const imageSrc = getValidImageSrc(product.image || product.images?.[0]);
 
   function handleQuickAdd(e) {
     e.preventDefault();
@@ -36,7 +38,7 @@ export function ProductCard({ product }) {
         : null,
       name: product.name,
       slug: product.slug,
-      image: product.image,
+      image: imageSrc,
       price: currentPrice,
       originalPrice: originalPrice,
       quantity: 1,
@@ -53,9 +55,9 @@ export function ProductCard({ product }) {
         href={`/product/${product.slug}`}
         className="relative block w-full aspect-square bg-muted/60 overflow-hidden"
       >
-        {product.image ? (
+        {imageSrc ? (
           <Image
-            src={product.image}
+            src={imageSrc}
             alt={product.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"

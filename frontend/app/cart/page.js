@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { useCart } from "@/lib/cart/cart-context";
 import { formatPrice } from "@/lib/format";
+import { getValidImageSrc } from "@/lib/utils";
 import { Trash2, ShoppingBag, ArrowLeft } from "lucide-react";
 
 export default function CartPage() {
@@ -65,79 +66,83 @@ export default function CartPage() {
         {/* Cart Line Items Table */}
         <div className="lg:col-span-2 space-y-4">
           <div className="divide-y divide-border rounded-theme border border-border/80 bg-surface shadow-2xs overflow-hidden">
-            {items.map((item) => (
-              <div
-                key={`${item.productId}-${item.variantId || "default"}`}
-                className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-              >
-                {/* Thumbnail & Title */}
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-theme bg-muted overflow-hidden shrink-0 border border-border">
-                    {item.image ? (
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        fill
-                        sizes="96px"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-text-muted">
-                        No image
-                      </div>
-                    )}
-                  </div>
+            {items.map((item) => {
+              const imgUrl = getValidImageSrc(item.image);
 
-                  <div>
-                    <Link
-                      href={`/product/${item.slug}`}
-                      className="text-sm sm:text-base font-bold text-text hover:text-secondary transition-colors line-clamp-1"
-                    >
-                      {item.name}
-                    </Link>
-                    {item.variantLabel && (
-                      <p className="text-xs text-text-muted mt-0.5">
-                        Variant: <span className="font-semibold text-text">{item.variantLabel}</span>
+              return (
+                <div
+                  key={`${item.productId}-${item.variantId || "default"}`}
+                  className="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  {/* Thumbnail & Title */}
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-theme bg-muted overflow-hidden shrink-0 border border-border">
+                      {imgUrl ? (
+                        <Image
+                          src={imgUrl}
+                          alt={item.name}
+                          fill
+                          sizes="96px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-text-muted">
+                          No image
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <Link
+                        href={`/product/${item.slug}`}
+                        className="text-sm sm:text-base font-bold text-text hover:text-secondary transition-colors line-clamp-1"
+                      >
+                        {item.name}
+                      </Link>
+                      {item.variantLabel && (
+                        <p className="text-xs text-text-muted mt-0.5">
+                          Variant: <span className="font-semibold text-text">{item.variantLabel}</span>
+                        </p>
+                      )}
+                      <p className="text-xs sm:text-sm font-bold text-text mt-1 sm:hidden">
+                        {formatPrice(item.price)} each
                       </p>
-                    )}
-                    <p className="text-xs sm:text-sm font-bold text-text mt-1 sm:hidden">
-                      {formatPrice(item.price)} each
-                    </p>
-                  </div>
-                </div>
-
-                {/* Controls & Price */}
-                <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 sm:gap-6 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/60">
-                  <QuantityStepper
-                    quantity={item.quantity}
-                    onChange={(q) =>
-                      updateQuantity(item.productId, item.variantId, q)
-                    }
-                    size="sm"
-                  />
-
-                  <div className="text-right min-w-20">
-                    <span className="text-sm sm:text-base font-black text-text">
-                      {formatPrice(Number(item.price) * item.quantity)}
-                    </span>
-                    {item.quantity > 1 && (
-                      <div className="text-[10px] text-text-muted hidden sm:block">
-                        {formatPrice(item.price)} / unit
-                      </div>
-                    )}
+                    </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => removeItem(item.productId, item.variantId)}
-                    className="p-2 text-text-muted hover:text-danger rounded-theme hover:bg-muted transition-colors"
-                    aria-label={`Remove ${item.name}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {/* Controls & Price */}
+                  <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 sm:gap-6 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/60">
+                    <QuantityStepper
+                      quantity={item.quantity}
+                      onChange={(q) =>
+                        updateQuantity(item.productId, item.variantId, q)
+                      }
+                      size="sm"
+                    />
+
+                    <div className="text-right min-w-20">
+                      <span className="text-sm sm:text-base font-black text-text">
+                        {formatPrice(Number(item.price) * item.quantity)}
+                      </span>
+                      {item.quantity > 1 && (
+                        <div className="text-[10px] text-text-muted hidden sm:block">
+                          {formatPrice(item.price)} / unit
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.productId, item.variantId)}
+                      className="p-2 text-text-muted hover:text-danger rounded-theme hover:bg-muted transition-colors"
+                      aria-label={`Remove ${item.name}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="pt-2">

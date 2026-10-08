@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Gallery } from "./Gallery";
 import { VariantPicker } from "./VariantPicker";
@@ -11,6 +11,7 @@ import { Rating } from "@/components/ui/Rating";
 import { useCart } from "@/lib/cart/cart-context";
 import { useStore } from "@/lib/store-context";
 import { formatPrice, getDiscountPercentage } from "@/lib/format";
+import { getValidImageSrc } from "@/lib/utils";
 import {
   ShoppingBag,
   Zap,
@@ -25,6 +26,11 @@ export function ProductView({ product }) {
   const router = useRouter();
   const { addItem } = useCart();
   const store = useStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Initial selected attributes based on first variant or option
   const initialAttributes = useMemo(() => {
@@ -90,13 +96,15 @@ export function ProductView({ product }) {
       ? Object.values(activeVariant.attributes).join(" / ")
       : null;
 
+    const cartImage = getValidImageSrc(activeVariant?.image || product.image || product.images?.[0]);
+
     addItem({
       productId: product.id,
       variantId: activeVariant?.id || null,
       variantLabel,
       name: product.name,
       slug: product.slug,
-      image: product.image,
+      image: cartImage,
       price: currentPrice,
       originalPrice,
       quantity,
@@ -111,15 +119,15 @@ export function ProductView({ product }) {
     router.push("/checkout");
   }
 
-  // WhatsApp Product Link
+  // WhatsApp Product Link - only render dynamic link after mount to prevent hydration mismatch
   const whatsappUrl = useMemo(() => {
-    if (!store?.whatsapp) return null;
+    if (!mounted || !store?.whatsapp) return null;
     const cleanNum = store.whatsapp.replace(/[^0-9]/g, "");
     const msg = encodeURIComponent(
       `Hello ${store.name || "Store"}, I'm interested in "${product.name}" (SKU: ${activeVariant?.sku || product.id}). Is it available?`
     );
     return `https://wa.me/${cleanNum}?text=${msg}`;
-  }, [store, product, activeVariant]);
+  }, [mounted, store, product, activeVariant]);
 
   return (
     <div className="py-4">
