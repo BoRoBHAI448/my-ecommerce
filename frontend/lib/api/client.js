@@ -1,5 +1,3 @@
-import { headers } from "next/headers";
-
 const API_URL = process.env.API_URL || "http://127.0.0.1:8000/api/v1";
 const DEFAULT_STORE_DOMAIN = process.env.DEFAULT_STORE_DOMAIN || "test.local";
 
@@ -13,22 +11,9 @@ export async function getStoreDomain() {
     if (host && host !== "localhost" && host !== "127.0.0.1") {
       return host;
     }
-    return DEFAULT_STORE_DOMAIN;
-  }
-
-  try {
-    const headersList = await headers();
-    const host = headersList?.get ? headersList.get("host") || "" : "";
-    const cleanHost = host.split(":")[0];
-    if (cleanHost && cleanHost !== "localhost" && cleanHost !== "127.0.0.1") {
-      return cleanHost;
-    }
-  } catch (err) {
-    // Fallback when called outside dynamic request context
   }
   return DEFAULT_STORE_DOMAIN;
 }
-
 
 /**
  * Core fetch wrapper sending X-Store-Domain and handling standard JSON envelope
