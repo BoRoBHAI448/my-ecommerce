@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useStore } from "@/lib/store-context";
+import { createAdminCategory, deleteAdminCategory } from "@/lib/api/admin";
 import { mockCategories } from "@/lib/api/mock/data";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -19,13 +20,14 @@ export default function AdminSubCategoriesPage() {
   useEffect(() => {
     if (mounted && Array.isArray(storeCategories)) {
       setCategories(storeCategories);
+      if (storeCategories.length > 0) {
+        setParentCatId(storeCategories[0].id.toString());
+      }
     }
   }, [mounted, storeCategories]);
 
   const [showAddForm, setShowAddForm] = useState(false);
-  const [parentCatId, setParentCatId] = useState(
-    categories[0]?.id?.toString() || ""
-  );
+  const [parentCatId, setParentCatId] = useState("");
   const [subName, setSubName] = useState("");
   const [subSlug, setSubSlug] = useState("");
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -49,12 +51,23 @@ export default function AdminSubCategoriesPage() {
     );
   }
 
-  function handleAddSubCategory(e) {
+  async function handleAddSubCategory(e) {
     e.preventDefault();
-    if (!subName.trim() || !parentCatId) return;
+    const targetParentId = parentCatId || (categories[0]?.id ? String(categories[0].id) : "");
+    if (!subName.trim() || !targetParentId) return;
+
+    // Send POST to Laravel backend API
+    try {
+      await createAdminCategory({
+        name: subName,
+        parent_id: isNaN(Number(targetParentId)) ? null : Number(targetParentId),
+      });
+    } catch {
+      // ignore
+    }
 
     const updated = categories.map((cat) => {
-      if (cat.id === Number(parentCatId)) {
+      if (String(cat.id) === String(targetParentId)) {
         const newChild = {
           id: Date.now(),
           name: subName,
@@ -80,13 +93,18 @@ export default function AdminSubCategoriesPage() {
     setTimeout(() => setSavedSuccess(false), 2500);
   }
 
-  function handleDeleteSubCategory(parentId, childId) {
+  async function handleDeleteSubCategory(parentId, childId) {
     if (confirm("Remove this sub-category?")) {
+      try {
+        await deleteAdminCategory(childId);
+      } catch {
+        // ignore
+      }
       const updated = categories.map((cat) => {
-        if (cat.id === parentId) {
+        if (String(cat.id) === String(parentId)) {
           return {
             ...cat,
-            children: (cat.children || []).filter((c) => c.id !== childId),
+            children: (cat.children || []).filter((c) => String(c.id) !== String(childId)),
           };
         }
         return cat;

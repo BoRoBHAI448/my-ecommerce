@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useStore } from "@/lib/store-context";
+import { createAdminCategory, deleteAdminCategory } from "@/lib/api/admin";
 import { mockCategories, mockProducts } from "@/lib/api/mock/data";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -120,14 +121,16 @@ function ImageUploadBox({ value, onChange, label = "Category Image" }) {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function AdminCategoriesPage() {
-  const { categories: storeCategories, updateCategories } = useStore();
+  const { categories: storeCategories, products: storeProducts, updateCategories } = useStore();
   const [mounted, setMounted] = useState(false);
   const [categories, setCategories] = useState(mockCategories);
   const [showAddForm, setShowAddForm] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // ── Product count map: slug → count (uses mock data; replace with API when backend is ready)
-  const productCountBySlug = mockProducts.reduce((acc, p) => {
+  const products = Array.isArray(storeProducts) ? storeProducts : [];
+
+  // ── Product count map: slug → count
+  const productCountBySlug = products.reduce((acc, p) => {
     const slug = p.category?.slug;
     if (slug) acc[slug] = (acc[slug] || 0) + 1;
     return acc;
@@ -179,9 +182,21 @@ export default function AdminCategoriesPage() {
     setTimeout(() => setSavedSuccess(false), 2500);
   }
 
-  function handleAddCategory(e) {
+  async function handleAddCategory(e) {
     e.preventDefault();
     if (!name.trim()) return;
+
+    // Persist to backend database API if connected
+    try {
+      await createAdminCategory({
+        name,
+        parent_id: parentId ? Number(parentId) : null,
+        image: image || null,
+        description: description || null,
+      });
+    } catch {
+      // ignore
+    }
 
     let updated;
     if (parentId) {
@@ -219,17 +234,27 @@ export default function AdminCategoriesPage() {
     resetForm();
   }
 
-  function handleDeleteCategory(id) {
+  async function handleDeleteCategory(id) {
     if (!confirm("এই category মুছে ফেলবেন?")) return;
-    const updated = categories.filter((c) => c.id !== id);
+    try {
+      await deleteAdminCategory(id);
+    } catch {
+      // ignore
+    }
+    const updated = categories.filter((c) => String(c.id) !== String(id));
     saveAndSync(updated);
   }
 
-  function handleDeleteSubcategory(parentId, subId) {
+  async function handleDeleteSubcategory(parentId, subId) {
     if (!confirm("এই sub-category মুছে ফেলবেন?")) return;
+    try {
+      await deleteAdminCategory(subId);
+    } catch {
+      // ignore
+    }
     const updated = categories.map((cat) => {
-      if (cat.id !== parentId) return cat;
-      return { ...cat, children: (cat.children || []).filter((s) => s.id !== subId) };
+      if (String(cat.id) !== String(parentId)) return cat;
+      return { ...cat, children: (cat.children || []).filter((s) => String(s.id) !== String(subId)) };
     });
     saveAndSync(updated);
   }
@@ -358,8 +383,8 @@ export default function AdminCategoriesPage() {
           {/* Total product count across all categories */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600">
             <Package className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-xs font-bold">
-              {mockProducts.length} Products
+            <span className="text-xs font-bold" suppressHydrationWarning>
+              {products.length} Products
             </span>
           </div>
         </div>
@@ -389,7 +414,9 @@ export default function AdminCategoriesPage() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-bold text-slate-900 truncate">{cat.name}</p>
                     {/* Total product count badge */}
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold shrink-0
+                    <span
+                      suppressHydrationWarning
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold shrink-0
                       ${getCategoryTotal(cat) > 0
                         ? "bg-amber-100 text-amber-700"
                         : "bg-slate-100 text-slate-400"}`}
@@ -417,7 +444,9 @@ export default function AdminCategoriesPage() {
                           <ChevronRight className="w-2.5 h-2.5 text-slate-400" />
                           {sub.name}
                           {/* Sub product count */}
-                          <span className={`ml-0.5 px-1 rounded text-[10px] font-bold
+                          <span
+                            suppressHydrationWarning
+                            className={`ml-0.5 px-1 rounded text-[10px] font-bold
                             ${subCount > 0 ? "bg-amber-100 text-amber-600" : "bg-slate-200 text-slate-400"}`}
                           >
                             {subCount}

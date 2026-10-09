@@ -1,16 +1,31 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { ProductCard } from "./ProductCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
+import { useStore } from "@/lib/store-context";
 
 export function ProductGrid({
-  products = [],
+  products: initialProducts = [],
   isLoading = false,
   emptyMessage,
   emptyTitle,
   className,
   columns = 4,
 }) {
+  const { products: storeProducts } = useStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const products =
+    mounted && (!initialProducts || initialProducts.length === 0) && Array.isArray(storeProducts) && storeProducts.length > 0
+      ? storeProducts
+      : initialProducts;
   if (isLoading) {
     return (
       <div

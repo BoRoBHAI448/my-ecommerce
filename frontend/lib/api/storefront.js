@@ -37,7 +37,7 @@ export async function getCategories() {
     return res || { success: true, data: [] };
   } catch (err) {
     console.error("Failed to fetch categories from backend:", err);
-    return { success: true, data: mockCategories };
+    return { success: true, data: [] };
   }
 }
 
@@ -53,7 +53,7 @@ export async function getBanners() {
     return res || { success: true, data: mockBanners };
   } catch (err) {
     console.error("Failed to fetch banners from backend:", err);
-    return { success: true, data: mockBanners };
+    return { success: true, data: { hero: [], promo: [] } };
   }
 }
 
@@ -66,10 +66,10 @@ export async function getBrands() {
   }
   try {
     const res = await apiClient("/brands");
-    return res || { success: true, data: mockBrands };
+    return res || { success: true, data: [] };
   } catch (err) {
     console.error("Failed to fetch brands from backend:", err);
-    return { success: true, data: mockBrands };
+    return { success: true, data: [] };
   }
 }
 
@@ -84,7 +84,7 @@ function getMockProductsList() {
       // ignore
     }
   }
-  return mockProducts;
+  return [];
 }
 
 /**
@@ -178,7 +178,7 @@ export async function getProducts(params = {}) {
     return res || { success: true, data: [], meta: { current_page: 1, total: 0 } };
   } catch (err) {
     console.error("Failed to fetch products from backend:", err);
-    return { success: true, data: getMockProductsList(), meta: { current_page: 1, total: getMockProductsList().length } };
+    return { success: true, data: [], meta: { current_page: 1, total: 0 } };
   }
 }
 

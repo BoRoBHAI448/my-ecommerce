@@ -139,7 +139,7 @@ export default function AdminDashboardPage() {
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1 font-medium">
                   <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{s.trend}</span>
+                  <span suppressHydrationWarning>{s.trend}</span>
                 </p>
               </div>
               <div className={`p-3 rounded-lg ${s.color} shrink-0`}>

@@ -1,14 +1,29 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { ArrowRight } from "lucide-react";
+import { useStore } from "@/lib/store-context";
 
 export function FeaturedSection({
   title = "Featured Products",
   subtitle = "Our most loved and iconic designs",
   viewAllLink = "/shop",
-  products = [],
+  products: initialProducts = [],
   isLoading = false,
 }) {
+  const { products: storeProducts } = useStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const products = mounted && Array.isArray(storeProducts) && storeProducts.length > 0
+    ? storeProducts
+    : initialProducts;
+
   if (!isLoading && products.length === 0) return null;
 
   return (

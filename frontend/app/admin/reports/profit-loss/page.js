@@ -15,13 +15,13 @@ import {
 export default function AdminProfitLossPage() {
   const [period, setPeriod] = useState("month");
 
-  const revenue = 148500;
-  const cogs = 78200; // Cost of goods
-  const shippingCollected = 5600;
-  const shippingCost = 6100;
-  const returns = 3200;
-  const grossProfit = revenue - cogs - (shippingCost - shippingCollected) - returns;
-  const margin = ((grossProfit / revenue) * 100).toFixed(1);
+  const revenue = 0;
+  const cogs = 0;
+  const shippingCollected = 0;
+  const shippingCost = 0;
+  const returns = 0;
+  const grossProfit = 0;
+  const margin = 0;
 
   return (
     <div className="space-y-6 pb-12">

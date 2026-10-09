@@ -28,9 +28,12 @@ import {
 } from "lucide-react";
 
 export default function AdminProductsPage() {
-  const { products: storeProducts, updateProducts } = useStore();
+  const { products: storeProducts, categories: storeCategories, brands: storeBrands, updateProducts } = useStore();
   const [mounted, setMounted] = useState(false);
   const [products, setProducts] = useState(mockProducts);
+
+  const categoriesList = mounted && Array.isArray(storeCategories) ? storeCategories : mockCategories;
+  const brandsList = mounted && Array.isArray(storeBrands) ? storeBrands : mockBrands;
 
   useEffect(() => {
     setMounted(true);
@@ -321,12 +324,13 @@ export default function AdminProductsPage() {
           {/* Category Filter */}
           <div className="md:col-span-2">
             <select
+              suppressHydrationWarning
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
             >
               <option value="all">All Categories</option>
-              {mockCategories.map((c) => (
+              {categoriesList.map((c) => (
                 <option key={c.id} value={c.slug}>
                   {c.name}
                 </option>
@@ -337,12 +341,13 @@ export default function AdminProductsPage() {
           {/* Brand Filter */}
           <div className="md:col-span-2">
             <select
+              suppressHydrationWarning
               value={selectedBrand}
               onChange={(e) => setSelectedBrand(e.target.value)}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
             >
               <option value="all">All Brands</option>
-              {mockBrands.map((b) => (
+              {brandsList.map((b) => (
                 <option key={b.id} value={b.slug}>
                   {b.name}
                 </option>

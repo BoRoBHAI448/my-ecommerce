@@ -38,7 +38,7 @@ export async function apiClient(endpoint, options = {}) {
       ...options.headers,
     },
     next: {
-      revalidate: options.revalidate !== undefined ? options.revalidate : 60,
+      revalidate: options.revalidate !== undefined ? options.revalidate : 1,
       tags: options.tags || [],
     },
   });

@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store-context";
+import { createAdminProduct } from "@/lib/api/admin";
 import { mockProducts, mockCategories, mockBrands } from "@/lib/api/mock/data";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -28,13 +29,22 @@ function ProductCreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
-  const { products: storeProducts, updateProducts } = useStore();
+  const { categories: storeCategories, brands: storeBrands, products: storeProducts, updateProducts } = useStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const allProducts = Array.isArray(storeProducts) ? storeProducts : mockProducts;
+  const categoriesList = mounted && Array.isArray(storeCategories) ? storeCategories : mockCategories;
+  const brandsList = mounted && Array.isArray(storeBrands) ? storeBrands : mockBrands;
 
   // Basic Details
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedSubCategory, setSelectedSubCategory] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("");
   const [description, setDescription] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
@@ -46,9 +56,7 @@ function ProductCreateContent() {
   const [costPrice, setCostPrice] = useState("");
 
   // Media
-  const [images, setImages] = useState([
-    "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80",
-  ]);
+  const [images, setImages] = useState([]);
   const [newImageUrl, setNewImageUrl] = useState("");
 
   // Variant Options Builder (e.g. Size, Color)
@@ -60,8 +68,21 @@ function ProductCreateContent() {
 
   // Generated Variants Matrix
   const [variants, setVariants] = useState([]);
+  const [bulkStockInput, setBulkStockInput] = useState("10");
   const [toastMessage, setToastMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  function handleApplyBulkStock() {
+    const qty = Number(bulkStockInput);
+    if (isNaN(qty) || qty < 0) return;
+    setVariants((prev) =>
+      prev.map((v) => ({
+        ...v,
+        stock_quantity: qty,
+        in_stock: qty > 0,
+      }))
+    );
+  }
 
   // Auto-slug generator
   function handleNameChange(val) {
@@ -141,7 +162,7 @@ function ProductCreateContent() {
         attributes: attrs,
         selling_price: Number(sellingPrice) || basePrice || 2500,
         discount_price: discountPrice ? Number(discountPrice) : null,
-        stock_quantity: 10,
+        stock_quantity: Number(bulkStockInput) || 10,
         in_stock: true,
       };
     });
@@ -188,6 +209,21 @@ function ProductCreateContent() {
     setNewImageUrl("");
   }
 
+  // Handle file upload from local computer
+  function handleFileUpload(files) {
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setImages((prev) => [...prev, e.target.result]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   // Remove image
   function handleRemoveImage(idx) {
     setImages(images.filter((_, i) => i !== idx));
@@ -201,7 +237,7 @@ function ProductCreateContent() {
   }
 
   // Form Submit
-  function handleSaveProduct(e) {
+  async function handleSaveProduct(e) {
     e.preventDefault();
     if (!name.trim()) {
       alert("Please enter product name");
@@ -210,11 +246,38 @@ function ProductCreateContent() {
 
     setIsSubmitting(true);
 
-    const catObj = mockCategories.find((c) => c.slug === selectedCategory) || {
+    const catObj = categoriesList.find((c) => c.slug === selectedCategory || String(c.id) === String(selectedCategory)) || {
       name: selectedCategory || "General",
       slug: selectedCategory || "general",
     };
-    const brandObj = mockBrands.find((b) => b.slug === selectedBrand) || (selectedBrand ? { name: selectedBrand, slug: selectedBrand } : null);
+
+    const subCatObj = selectedSubCategory
+      ? (catObj.children || []).find((s) => s.slug === selectedSubCategory || String(s.id) === String(selectedSubCategory))
+      : null;
+
+    const finalCategoryObj = subCatObj || catObj;
+
+    const brandObj = brandsList.find((b) => b.slug === selectedBrand || String(b.id) === String(selectedBrand)) || (selectedBrand ? { name: selectedBrand, slug: selectedBrand } : null);
+
+    // Send to Laravel API if available
+    try {
+      await createAdminProduct({
+        name: name.trim(),
+        category_id: (subCatObj && typeof subCatObj.id === "number") ? subCatObj.id : (catObj && typeof catObj.id === "number" ? catObj.id : 1),
+        brand_id: (brandObj && typeof brandObj.id === "number") ? brandObj.id : null,
+        regular_price: Number(sellingPrice) || 0,
+        selling_price: discountPrice ? Number(discountPrice) : (Number(sellingPrice) || 0),
+        discount_price: discountPrice ? Number(discountPrice) : null,
+        stock: variants.length > 0 ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0) : 10,
+        description: description.trim(),
+        thumbnail: images[0] || null,
+        is_featured: isFeatured,
+        is_active: isActive,
+        images: images,
+      });
+    } catch {
+      // ignore
+    }
 
     const productPayload = {
       id: editId ? Number(editId) : Date.now(),
@@ -226,7 +289,7 @@ function ProductCreateContent() {
       cost_price: costPrice ? Number(costPrice) : null,
       image: images[0] || "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80",
       images: images,
-      category: catObj,
+      category: finalCategoryObj,
       brand: brandObj,
       in_stock: isActive,
       is_featured: isFeatured,
@@ -374,38 +437,61 @@ function ProductCreateContent() {
               Product Media Gallery
             </h2>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {images.map((img, idx) => (
-                <div
-                  key={idx}
-                  className="relative group aspect-square rounded-lg border border-slate-200 overflow-hidden bg-slate-50"
-                >
-                  <img
-                    src={img}
-                    alt={`Preview ${idx + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  {idx === 0 && (
-                    <span className="absolute top-2 left-2 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                      Main Cover
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(idx)}
-                    className="absolute top-2 right-2 p-1 bg-rose-600 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+            {/* File Upload Box */}
+            <div className="border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-xl p-6 text-center bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer group">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => handleFileUpload(e.target.files)}
+                className="hidden"
+                id="product-file-upload"
+              />
+              <label htmlFor="product-file-upload" className="cursor-pointer block space-y-2">
+                <UploadCloud className="w-8 h-8 text-indigo-500 mx-auto group-hover:scale-110 transition-transform" />
+                <p className="text-xs font-bold text-slate-800">
+                  কম্পিউটার থেকে ছবি সিলেক্ট করুন (Click to Upload Images or Drag & Drop)
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  JPG, PNG, WebP, SVG সাপোর্টেড (একাধিক ছবি একসাথে সিলেক্ট করা যাবে)
+                </p>
+              </label>
             </div>
 
-            {/* Add Image URL Input */}
-            <div className="flex gap-2 pt-2">
+            {images.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                {images.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="relative group aspect-square rounded-lg border border-slate-200 overflow-hidden bg-slate-50"
+                  >
+                    <img
+                      src={img}
+                      alt={`Preview ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    {idx === 0 && (
+                      <span className="absolute top-2 left-2 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
+                        Main Cover
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(idx)}
+                      className="absolute top-2 right-2 p-1 bg-rose-600 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add Image URL Input fallback */}
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
               <input
                 type="url"
-                placeholder="Paste high-res image URL (Unsplash or CDN)..."
+                placeholder="অথবা ইমেজের লিঙ্ক পেস্ট করুন (Paste image URL)..."
                 value={newImageUrl}
                 onChange={(e) => setNewImageUrl(e.target.value)}
                 className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
@@ -418,7 +504,7 @@ function ProductCreateContent() {
                 className="gap-1.5"
               >
                 <Plus className="w-4 h-4" />
-                Add Image
+                URL থেকে ছবি যোগ করুন
               </Button>
             </div>
           </div>
@@ -575,13 +661,49 @@ function ProductCreateContent() {
             {/* Generated Variants Table */}
             {variants.length > 0 && (
               <div className="pt-4 border-t border-slate-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Generated Combinations ({variants.length} Variants)
-                  </h3>
-                  <span className="text-xs text-slate-500">
-                    Each combination has independent stock and SKU
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-100">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Generated Combinations ({variants.length} Variants)
+                      </h3>
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Total Stock: {variants.reduce((sum, v) => sum + (Number(v.stock_quantity) || 0), 0)} Units
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Each combination has independent stock and SKU
+                    </p>
+                  </div>
+
+                  {/* Bulk Stock Input Controls */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-slate-700 whitespace-nowrap">
+                      Set Stock for All:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="10"
+                      value={bulkStockInput}
+                      onChange={(e) => setBulkStockInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleApplyBulkStock();
+                        }
+                      }}
+                      className="w-20 px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleApplyBulkStock}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1"
+                    >
+                      Apply to All
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto border border-slate-200 rounded-lg">
@@ -714,37 +836,71 @@ function ProductCreateContent() {
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
             <h2 className="text-base font-semibold text-slate-900">Organization</h2>
 
+            {/* Primary Category */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                 Primary Category <span className="text-rose-500">*</span>
               </label>
               <select
                 required
+                suppressHydrationWarning
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setSelectedSubCategory("");
+                }}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-medium"
               >
                 <option value="">Select Category...</option>
-                {mockCategories.map((c) => (
-                  <option key={c.id} value={c.slug}>
+                {categoriesList.map((c) => (
+                  <option key={c.id} value={c.slug || c.id}>
                     {c.name}
                   </option>
                 ))}
               </select>
             </div>
 
+            {/* Sub-Category Option */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                Sub-Category (Optional)
+              </label>
+              <select
+                suppressHydrationWarning
+                value={selectedSubCategory}
+                onChange={(e) => setSelectedSubCategory(e.target.value)}
+                disabled={!selectedCategory}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-medium disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                <option value="">
+                  {selectedCategory ? "Select Sub-Category (Optional)..." : "প্রথমে Primary Category সিলেক্ট করুন"}
+                </option>
+                {(
+                  categoriesList.find(
+                    (c) => c.slug === selectedCategory || String(c.id) === String(selectedCategory)
+                  )?.children || []
+                ).map((sub) => (
+                  <option key={sub.id} value={sub.slug || sub.id}>
+                    {sub.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Brand */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                 Brand
               </label>
               <select
+                suppressHydrationWarning
                 value={selectedBrand}
                 onChange={(e) => setSelectedBrand(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-medium"
               >
                 <option value="">Select Brand (Optional)...</option>
-                {mockBrands.map((b) => (
-                  <option key={b.id} value={b.slug}>
+                {brandsList.map((b) => (
+                  <option key={b.id} value={b.slug || b.id}>
                     {b.name}
                   </option>
                 ))}

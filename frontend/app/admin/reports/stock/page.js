@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { mockProducts } from "@/lib/api/mock/data";
+import { useStore } from "@/lib/store-context";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -14,26 +14,41 @@ import {
 } from "lucide-react";
 
 export default function AdminStockLedgerPage() {
+  const store = useStore();
+  const products = Array.isArray(store?.products) ? store.products : [];
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  // Flatten variants from all products
+  // Flatten variants/products from catalog
   const ledgerItems = [];
-  mockProducts.forEach((p) => {
-    (p.variants || []).forEach((v) => {
+  products.forEach((p) => {
+    if (p.variants && p.variants.length > 0) {
+      p.variants.forEach((v) => {
+        ledgerItems.push({
+          id: v.id || v.sku,
+          product_name: p.name,
+          category: p.category?.name || "General",
+          sku: v.sku || `SKU-${p.id}`,
+          attributes: Object.entries(v.attributes || {})
+            .map(([k, val]) => `${k}: ${val}`)
+            .join(" / "),
+          stock: v.stock_quantity ?? v.stock ?? 0,
+          price: v.selling_price ?? p.selling_price ?? 0,
+          in_stock: (v.stock_quantity ?? v.stock ?? 0) > 0,
+        });
+      });
+    } else {
       ledgerItems.push({
-        id: v.id,
+        id: p.id,
         product_name: p.name,
         category: p.category?.name || "General",
-        sku: v.sku,
-        attributes: Object.entries(v.attributes || {})
-          .map(([k, val]) => `${k}: ${val}`)
-          .join(" / "),
-        stock: v.stock_quantity || 0,
-        price: v.selling_price || 0,
-        in_stock: v.in_stock && (v.stock_quantity || 0) > 0,
+        sku: p.sku || `SKU-${p.id}`,
+        attributes: "Standard",
+        stock: p.stock ?? p.quantity ?? 0,
+        price: p.discount_price || p.selling_price || 0,
+        in_stock: (p.stock ?? p.quantity ?? 0) > 0,
       });
-    });
+    }
   });
 
   const totalUnits = ledgerItems.reduce((acc, i) => acc + i.stock, 0);
@@ -85,15 +100,15 @@ export default function AdminStockLedgerPage() {
           <p className="text-xs font-semibold text-slate-500 uppercase">
             Total Inventory Units
           </p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{totalUnits} items</p>
-          <p className="text-xs text-slate-400 mt-1">Across {ledgerItems.length} SKUs</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{totalUnits} items</p>
+          <p className="text-xs text-slate-400 mt-1" suppressHydrationWarning>Across {ledgerItems.length} SKUs</p>
         </div>
 
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
           <p className="text-xs font-semibold text-slate-500 uppercase">
             Total Stock Valuation
           </p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">
+          <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>
             ৳{totalValuation.toLocaleString()}
           </p>
           <p className="text-xs text-slate-400 mt-1">At retail selling price</p>
@@ -103,7 +118,7 @@ export default function AdminStockLedgerPage() {
           <p className="text-xs font-semibold text-amber-600 uppercase">
             Low Stock Alerts (&lt;5)
           </p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{lowStockItems.length}</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{lowStockItems.length}</p>
           <p className="text-xs text-amber-600 mt-1">Needs purchase reorder</p>
         </div>
 
@@ -111,7 +126,7 @@ export default function AdminStockLedgerPage() {
           <p className="text-xs font-semibold text-rose-600 uppercase">
             Out of Stock SKUs
           </p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{outOfStockItems.length}</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{outOfStockItems.length}</p>
           <p className="text-xs text-rose-600 mt-1">Zero units remaining</p>
         </div>
       </div>
@@ -122,6 +137,7 @@ export default function AdminStockLedgerPage() {
           <div className="flex gap-2 w-full sm:w-auto">
             <button
               onClick={() => setFilter("all")}
+              suppressHydrationWarning
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
                 filter === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
               }`}
@@ -130,6 +146,7 @@ export default function AdminStockLedgerPage() {
             </button>
             <button
               onClick={() => setFilter("low")}
+              suppressHydrationWarning
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
                 filter === "low" ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-700"
               }`}
@@ -138,6 +155,7 @@ export default function AdminStockLedgerPage() {
             </button>
             <button
               onClick={() => setFilter("out")}
+              suppressHydrationWarning
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
                 filter === "out" ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-700"
               }`}

@@ -16,18 +16,8 @@ import {
 export default function AdminSalesReportPage() {
   const [period, setPeriod] = useState("30days");
 
-  const salesByPayment = [
-    { method: "Cash on Delivery (COD)", orders: 48, revenue: 98500, percentage: 66 },
-    { method: "bKash Online", orders: 22, revenue: 42000, percentage: 28 },
-    { method: "Nagad", orders: 6, revenue: 8000, percentage: 6 },
-  ];
-
-  const topProducts = [
-    { name: "Classic Supima Cotton Oxford Shirt", sold: 34, revenue: 62900, category: "Men's Fashion" },
-    { name: "Handcrafted Heritage Penny Loafer", sold: 18, revenue: 81000, category: "Footwear" },
-    { name: "Structured Italian Leather Tote Bag", sold: 14, revenue: 50400, category: "Accessories & Bags" },
-    { name: "Minimalist Leather Bi-Fold Wallet", sold: 26, revenue: 29900, category: "Accessories & Bags" },
-  ];
+  const salesByPayment = [];
+  const topProducts = [];
 
   return (
     <div className="space-y-6 pb-12">

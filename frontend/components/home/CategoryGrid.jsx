@@ -1,8 +1,23 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
+import { useStore } from "@/lib/store-context";
 
-export function CategoryGrid({ categories = [] }) {
+export function CategoryGrid({ categories: initialCategories = [] }) {
+  const { categories: storeCategories } = useStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const categories = mounted && Array.isArray(storeCategories) && storeCategories.length > 0
+    ? storeCategories
+    : initialCategories;
+
   if (!categories || categories.length === 0) return null;
 
   return (
