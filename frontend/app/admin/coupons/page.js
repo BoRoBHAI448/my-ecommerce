@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useStore } from "@/lib/store-context";
 import { mockCoupons } from "@/lib/api/mock/data";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -68,10 +69,29 @@ export default function AdminCouponsPage() {
     },
   ];
 
+  const { coupons: storeCoupons, updateCoupons } = useStore();
+  const [mounted, setMounted] = useState(false);
   const [coupons, setCoupons] = useState(initialCoupons);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && Array.isArray(storeCoupons)) {
+      setCoupons(storeCoupons);
+    }
+  }, [mounted, storeCoupons]);
+
+  function saveAndSyncCoupons(updated) {
+    setCoupons(updated);
+    if (typeof updateCoupons === "function") {
+      updateCoupons(updated);
+    }
+  }
 
   // New coupon form state
   const [code, setCode] = useState("");
@@ -103,7 +123,8 @@ export default function AdminCouponsPage() {
       is_active: true,
     };
 
-    setCoupons([newCoupon, ...coupons]);
+    const updated = [newCoupon, ...coupons];
+    saveAndSyncCoupons(updated);
     setShowAddModal(false);
     setCode("");
     setDiscountValue("");
@@ -112,21 +133,21 @@ export default function AdminCouponsPage() {
   }
 
   function handleToggleStatus(id) {
-    setCoupons((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          const next = !c.is_active;
-          showToast(`Coupon ${c.code} is now ${next ? "Active" : "Disabled"}`);
-          return { ...c, is_active: next };
-        }
-        return c;
-      })
-    );
+    const updated = coupons.map((c) => {
+      if (c.id === id) {
+        const next = !c.is_active;
+        showToast(`Coupon ${c.code} is now ${next ? "Active" : "Disabled"}`);
+        return { ...c, is_active: next };
+      }
+      return c;
+    });
+    saveAndSyncCoupons(updated);
   }
 
   function handleDeleteCoupon(id) {
     if (window.confirm("Are you sure you want to delete this coupon?")) {
-      setCoupons((prev) => prev.filter((c) => c.id !== id));
+      const updated = coupons.filter((c) => c.id !== id);
+      saveAndSyncCoupons(updated);
       showToast("Coupon removed.");
     }
   }
@@ -182,7 +203,7 @@ export default function AdminCouponsPage() {
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Active Coupons
             </p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">
+            <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>
               {coupons.filter((c) => c.is_active).length}
             </p>
           </div>
@@ -196,7 +217,7 @@ export default function AdminCouponsPage() {
             <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">
               Total Redemptions
             </p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">
+            <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>
               {coupons.reduce((acc, c) => acc + c.usage_count, 0)}
             </p>
           </div>

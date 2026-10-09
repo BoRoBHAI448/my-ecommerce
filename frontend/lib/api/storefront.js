@@ -73,6 +73,20 @@ export async function getBrands() {
   }
 }
 
+function getMockProductsList() {
+  if (typeof window !== "undefined") {
+    try {
+      const saved = localStorage.getItem("store_custom_products");
+      if (saved !== null) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return mockProducts;
+}
+
 /**
  * Query products catalog with filters and pagination
  * @param {object} [params]
@@ -91,7 +105,7 @@ export async function getProducts(params = {}) {
   } = params;
 
   if (isMock) {
-    let list = [...mockProducts];
+    let list = [...getMockProductsList()];
 
     if (search) {
       const q = search.toLowerCase();
@@ -164,7 +178,7 @@ export async function getProducts(params = {}) {
     return res || { success: true, data: [], meta: { current_page: 1, total: 0 } };
   } catch (err) {
     console.error("Failed to fetch products from backend:", err);
-    return { success: true, data: mockProducts, meta: { current_page: 1, total: mockProducts.length } };
+    return { success: true, data: getMockProductsList(), meta: { current_page: 1, total: getMockProductsList().length } };
   }
 }
 
@@ -173,8 +187,9 @@ export async function getProducts(params = {}) {
  * @param {string} slug
  */
 export async function getProductBySlug(slug) {
+  const prods = getMockProductsList();
   if (isMock) {
-    const product = mockProducts.find((p) => p.slug === slug);
+    const product = prods.find((p) => p.slug === slug);
     if (!product) return null;
     return { success: true, data: product };
   }
@@ -184,7 +199,7 @@ export async function getProductBySlug(slug) {
     return res ? res : null;
   } catch (err) {
     console.error(`Failed to fetch product ${slug} from backend:`, err);
-    const mock = mockProducts.find((p) => p.slug === slug);
+    const mock = prods.find((p) => p.slug === slug);
     return mock ? { success: true, data: mock } : null;
   }
 }
@@ -195,12 +210,13 @@ export async function getProductBySlug(slug) {
  * @param {number} [limit=4]
  */
 export async function getRelatedProducts(slug, limit = 4) {
+  const prods = getMockProductsList();
   if (isMock) {
-    const current = mockProducts.find((p) => p.slug === slug);
-    const related = mockProducts
+    const current = prods.find((p) => p.slug === slug);
+    const related = prods
       .filter((p) => p.slug !== slug && (!current || (p.category && current.category && p.category.slug === current.category.slug)))
       .slice(0, limit);
-    return { success: true, data: related.length > 0 ? related : mockProducts.slice(0, limit) };
+    return { success: true, data: related.length > 0 ? related : prods.slice(0, limit) };
   }
 
   try {

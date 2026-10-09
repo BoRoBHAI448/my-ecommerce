@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useStore } from "@/lib/store-context";
 import { mockProducts, mockCategories, mockBrands } from "@/lib/api/mock/data";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -27,7 +28,20 @@ import {
 } from "lucide-react";
 
 export default function AdminProductsPage() {
+  const { products: storeProducts, updateProducts } = useStore();
+  const [mounted, setMounted] = useState(false);
   const [products, setProducts] = useState(mockProducts);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && Array.isArray(storeProducts)) {
+      setProducts(storeProducts);
+    }
+  }, [mounted, storeProducts]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedBrand, setSelectedBrand] = useState("all");
@@ -36,6 +50,13 @@ export default function AdminProductsPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [toastMessage, setToastMessage] = useState("");
   const [deleteModalProduct, setDeleteModalProduct] = useState(null);
+
+  function saveAndSyncProducts(updated) {
+    setProducts(updated);
+    if (typeof updateProducts === "function") {
+      updateProducts(updated);
+    }
+  }
 
   // Quick flash notification
   function showToast(msg) {
@@ -135,16 +156,15 @@ export default function AdminProductsPage() {
 
   // Status toggle
   const handleToggleStatus = (id) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          const next = !p.in_stock;
-          showToast(`"${p.name}" status changed to ${next ? "Active" : "Draft"}`);
-          return { ...p, in_stock: next };
-        }
-        return p;
-      })
-    );
+    const updated = products.map((p) => {
+      if (p.id === id) {
+        const next = !p.in_stock;
+        showToast(`"${p.name}" status changed to ${next ? "Active" : "Draft"}`);
+        return { ...p, in_stock: next };
+      }
+      return p;
+    });
+    saveAndSyncProducts(updated);
   };
 
   // Clone product
@@ -160,14 +180,16 @@ export default function AdminProductsPage() {
         sku: v.sku ? `${v.sku}-COPY` : `SKU-${Date.now()}`,
       })),
     };
-    setProducts([cloned, ...products]);
+    const updated = [cloned, ...products];
+    saveAndSyncProducts(updated);
     showToast(`Product duplicated successfully!`);
   };
 
   // Delete product
   const confirmDeleteProduct = () => {
     if (!deleteModalProduct) return;
-    setProducts((prev) => prev.filter((p) => p.id !== deleteModalProduct.id));
+    const updated = products.filter((p) => p.id !== deleteModalProduct.id);
+    saveAndSyncProducts(updated);
     setSelectedIds((prev) => prev.filter((id) => id !== deleteModalProduct.id));
     showToast(`"${deleteModalProduct.name}" deleted successfully.`);
     setDeleteModalProduct(null);
@@ -180,18 +202,18 @@ export default function AdminProductsPage() {
         `Are you sure you want to delete ${selectedIds.length} selected products?`
       )
     ) {
-      setProducts((prev) => prev.filter((p) => !selectedIds.includes(p.id)));
+      const updated = products.filter((p) => !selectedIds.includes(p.id));
+      saveAndSyncProducts(updated);
       setSelectedIds([]);
       showToast(`${selectedIds.length} products removed.`);
     }
   };
 
   const handleBulkStatusChange = (status) => {
-    setProducts((prev) =>
-      prev.map((p) =>
-        selectedIds.includes(p.id) ? { ...p, in_stock: status } : p
-      )
+    const updated = products.map((p) =>
+      selectedIds.includes(p.id) ? { ...p, in_stock: status } : p
     );
+    saveAndSyncProducts(updated);
     showToast(`Updated status for ${selectedIds.length} products.`);
     setSelectedIds([]);
   };
@@ -237,7 +259,7 @@ export default function AdminProductsPage() {
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Total Products
             </p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{stats.total}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{stats.total}</p>
           </div>
           <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
             <Package className="w-5 h-5" />
@@ -249,7 +271,7 @@ export default function AdminProductsPage() {
             <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">
               In Stock
             </p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{stats.inStockCount}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{stats.inStockCount}</p>
           </div>
           <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <CheckCircle2 className="w-5 h-5" />
@@ -261,7 +283,7 @@ export default function AdminProductsPage() {
             <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider">
               Low Stock Alert
             </p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{stats.lowStockCount}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{stats.lowStockCount}</p>
           </div>
           <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
             <AlertTriangle className="w-5 h-5" />
@@ -273,7 +295,7 @@ export default function AdminProductsPage() {
             <p className="text-xs font-semibold text-rose-600 uppercase tracking-wider">
               Out of Stock
             </p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{stats.outOfStockCount}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{stats.outOfStockCount}</p>
           </div>
           <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
             <XCircle className="w-5 h-5" />
@@ -618,13 +640,13 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Footer info */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2" suppressHydrationWarning>
           <span>
-            Showing <strong className="text-slate-700">{filteredProducts.length}</strong> of{" "}
-            <strong className="text-slate-700">{products.length}</strong> total products
+            Showing <strong className="text-slate-700" suppressHydrationWarning>{filteredProducts.length}</strong> of{" "}
+            <strong className="text-slate-700" suppressHydrationWarning>{products.length}</strong> total products
           </span>
           <span className="text-slate-400">
-            Total Inventory Units: <strong>{stats.totalStockUnits} items</strong>
+            Total Inventory Units: <strong suppressHydrationWarning>{stats.totalStockUnits} items</strong>
           </span>
         </div>
       </div>

@@ -7,8 +7,14 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Tag, ArrowLeft, Check } from "lucide-react";
 
+import { useStore } from "@/lib/store-context";
+import { mockBrands } from "@/lib/api/mock/data";
+
 export default function AdminCreateBrandPage() {
   const router = useRouter();
+  const { brands: storeBrands, updateBrands } = useStore();
+  const allBrands = Array.isArray(storeBrands) ? storeBrands : mockBrands;
+
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [logoText, setLogoText] = useState("");
@@ -33,13 +39,27 @@ export default function AdminCreateBrandPage() {
     if (!name.trim()) return;
 
     setLoading(true);
+
+    const newBrand = {
+      id: Date.now(),
+      name: name.trim(),
+      slug: slug.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      logo: logoText.trim() || name.slice(0, 2).toUpperCase(),
+      is_active: true,
+    };
+
+    const updated = [newBrand, ...allBrands];
+    if (typeof updateBrands === "function") {
+      updateBrands(updated);
+    }
+
     setTimeout(() => {
       setLoading(false);
       setSuccess(true);
       setTimeout(() => {
         router.push("/admin/brands");
-      }, 1000);
-    }, 500);
+      }, 800);
+    }, 400);
   }
 
   return (

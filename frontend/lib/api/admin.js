@@ -23,84 +23,185 @@ export async function adminLogin(email, password) {
  * Helper to get Auth Headers for Admin requests
  */
 function getAdminHeaders() {
-  if (typeof window === "undefined") return {};
+  if (typeof window === "undefined") return null;
   const token = localStorage.getItem("admin_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  if (!token) return null;
+  return { Authorization: `Bearer ${token}` };
 }
 
 /**
  * Fetch Admin Dashboard Stats & Overview
  */
 export async function getAdminDashboard() {
-  return await apiClient("/admin/dashboard", {
-    headers: getAdminHeaders(),
-  });
+  const headers = getAdminHeaders();
+  if (!headers) return null;
+
+  try {
+    return await apiClient("/admin/dashboard", { headers });
+  } catch (err) {
+    if (err?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("admin_user");
+    }
+    return null;
+  }
 }
 
 /**
  * Fetch Admin Orders list with filtering
  */
 export async function getAdminOrders(params = {}) {
-  const searchParams = new URLSearchParams();
-  if (params.status) searchParams.set("status", params.status);
-  if (params.search) searchParams.set("q", params.search);
-  if (params.page) searchParams.set("page", String(params.page));
+  const headers = getAdminHeaders();
+  if (!headers) return null;
 
-  return await apiClient(`/admin/orders?${searchParams.toString()}`, {
-    headers: getAdminHeaders(),
-  });
+  try {
+    const searchParams = new URLSearchParams();
+    if (params.status) searchParams.set("status", params.status);
+    if (params.search) searchParams.set("q", params.search);
+    if (params.page) searchParams.set("page", String(params.page));
+
+    const query = searchParams.toString();
+    const endpoint = query ? `/admin/orders?${query}` : "/admin/orders";
+
+    return await apiClient(endpoint, { headers });
+  } catch (err) {
+    if (err?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("admin_user");
+    }
+    return null;
+  }
 }
 
 /**
  * Fetch single order detail by ID
  */
 export async function getAdminOrder(id) {
-  return await apiClient(`/admin/orders/${id}`, {
-    headers: getAdminHeaders(),
-  });
+  const headers = getAdminHeaders();
+  if (!headers) return null;
+
+  try {
+    return await apiClient(`/admin/orders/${id}`, { headers });
+  } catch (err) {
+    if (err?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("admin_user");
+    }
+    return null;
+  }
 }
 
 /**
  * Update order status (Pending -> Confirmed -> Shipped -> Delivered, etc.)
  */
 export async function updateAdminOrderStatus(id, orderStatus, notes = "") {
-  return await apiClient(`/admin/orders/${id}/status`, {
-    method: "PATCH",
-    headers: getAdminHeaders(),
-    body: JSON.stringify({ order_status: orderStatus, notes }),
-  });
+  const headers = getAdminHeaders();
+  if (!headers) return null;
+
+  try {
+    return await apiClient(`/admin/orders/${id}/status`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ order_status: orderStatus, notes }),
+    });
+  } catch (err) {
+    if (err?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("admin_user");
+    }
+    return null;
+  }
 }
 
 /**
  * Fetch Incomplete Orders (abandoned carts)
  */
 export async function getAdminIncompleteOrders(params = {}) {
-  const searchParams = new URLSearchParams();
-  if (params.page) searchParams.set("page", String(params.page));
+  const headers = getAdminHeaders();
+  if (!headers) return null;
 
-  return await apiClient(`/admin/orders/incomplete?${searchParams.toString()}`, {
-    headers: getAdminHeaders(),
-  });
+  try {
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.set("page", String(params.page));
+
+    const query = searchParams.toString();
+    const endpoint = query ? `/admin/orders/incomplete?${query}` : "/admin/orders/incomplete";
+
+    return await apiClient(endpoint, { headers });
+  } catch (err) {
+    if (err?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("admin_user");
+    }
+    return null;
+  }
 }
 
 /**
  * Create a new product from Admin panel
  */
 export async function createAdminProduct(productData) {
-  return await apiClient("/admin/products", {
-    method: "POST",
-    headers: getAdminHeaders(),
-    body: JSON.stringify(productData),
-  });
+  const headers = getAdminHeaders();
+  if (!headers) return null;
+
+  try {
+    return await apiClient("/admin/products", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(productData),
+    });
+  } catch (err) {
+    if (err?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("admin_user");
+    }
+    return null;
+  }
 }
 
 /**
  * Update store settings from Admin panel
  */
 export async function updateAdminStore(storeData) {
-  return await apiClient("/admin/store", {
-    method: "PATCH",
-    headers: getAdminHeaders(),
-    body: JSON.stringify(storeData),
-  });
+  const headers = getAdminHeaders();
+  if (!headers) return null;
+
+  try {
+    return await apiClient("/admin/store", {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(storeData),
+    });
+  } catch (err) {
+    if (err?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("admin_user");
+    }
+    return null;
+  }
+}
+
+/**
+ * Change Admin Password
+ */
+export async function changeAdminPassword(currentPassword, newPassword, newPasswordConfirmation) {
+  const headers = getAdminHeaders();
+  if (!headers) return { success: false, message: "Authentication required" };
+
+  try {
+    return await apiClient("/admin/change-password", {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+        new_password_confirmation: newPasswordConfirmation,
+      }),
+    });
+  } catch (err) {
+    return {
+      success: false,
+      message: err?.message || "Failed to update password",
+    };
+  }
 }

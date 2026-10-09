@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store-context";
 import {
   LayoutDashboard,
@@ -21,23 +21,71 @@ import {
   ExternalLink,
   Bell,
   Users,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function AdminLayout({ children }) {
+  const router = useRouter();
   const pathname = usePathname();
   const store = useStore();
   const [mounted, setMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [adminUser, setAdminUser] = useState(null);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+
+    if (pathname === "/admin/login") return;
+
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("admin_token");
+      if (!token) {
+        router.replace("/admin/login");
+      } else {
+        setIsAuthenticated(true);
+        const userStr = localStorage.getItem("admin_user");
+        if (userStr) {
+          try {
+            setAdminUser(JSON.parse(userStr));
+          } catch {
+            // Ignore
+          }
+        }
+      }
+    }
+  }, [pathname, router]);
+
+  function handleLogout() {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("admin_user");
+    }
+    router.replace("/admin/login");
+  }
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [openSubmenu, setOpenSubmenu] = useState({
     "Category Hub": true,
     "Brand Center": true,
   });
+
+  // Standalone layout for login route
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
+
+  // Loading screen while verifying token
+  if (mounted && !isAuthenticated) {
+    return (
+      <div className="h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-semibold">Verifying Admin Access...</span>
+        </div>
+      </div>
+    );
+  }
 
   const navigation = [
     {
@@ -300,15 +348,27 @@ export default function AdminLayout({ children }) {
               <span className="w-2 h-2 rounded-full bg-amber-500 absolute top-2 right-2" />
             </button>
 
-            {/* Profile Pill */}
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-slate-900 text-amber-400 font-bold text-xs flex items-center justify-center">
-                AD
+            {/* Profile Pill & Logout */}
+            <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
+              <div className="w-8 h-8 rounded-full bg-slate-900 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                {adminUser?.name ? adminUser.name.charAt(0).toUpperCase() : "AD"}
               </div>
               <div className="hidden md:flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-800 leading-tight">Admin User</span>
-                <span className="text-[10px] text-slate-400">Store Owner</span>
+                <span className="text-xs font-bold text-slate-800 leading-tight">
+                  {adminUser?.name || "Store Manager"}
+                </span>
+                <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                  {adminUser?.email || "admin@ligglo.com"}
+                </span>
               </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Log Out of Admin Panel"
+                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </header>

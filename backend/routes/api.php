@@ -62,6 +62,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AdminAuthController::class, 'me']);
         Route::post('/logout', [AdminAuthController::class, 'logout']);
+        Route::put('/change-password', [AdminAuthController::class, 'updatePassword']);
 
         // Dashboard & Analytics
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);

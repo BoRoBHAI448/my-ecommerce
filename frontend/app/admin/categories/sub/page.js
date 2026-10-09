@@ -9,15 +9,18 @@ import { FolderTree, PlusCircle, Trash2, Check } from "lucide-react";
 
 export default function AdminSubCategoriesPage() {
   const { categories: storeCategories, updateCategories } = useStore();
-  const [categories, setCategories] = useState(
-    storeCategories?.length ? storeCategories : mockCategories
-  );
+  const [mounted, setMounted] = useState(false);
+  const [categories, setCategories] = useState(mockCategories);
 
   useEffect(() => {
-    if (storeCategories?.length) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && Array.isArray(storeCategories)) {
       setCategories(storeCategories);
     }
-  }, [storeCategories]);
+  }, [mounted, storeCategories]);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [parentCatId, setParentCatId] = useState(

@@ -14,7 +14,7 @@ export function Footer({ store: propStore, categories: propCategories = [] }) {
   // After mount, prefer the live context store (has localStorage overrides);
   // before mount, fall back to the prop from the server to avoid hydration mismatch.
   const store    = mounted ? (contextStore || propStore) : propStore;
-  const categories = mounted && contextStore?.categories?.length
+  const categories = mounted && Array.isArray(contextStore?.categories)
     ? contextStore.categories
     : propCategories;
 

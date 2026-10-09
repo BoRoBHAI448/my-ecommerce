@@ -121,9 +121,8 @@ function ImageUploadBox({ value, onChange, label = "Category Image" }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function AdminCategoriesPage() {
   const { categories: storeCategories, updateCategories } = useStore();
-  const [categories, setCategories] = useState(
-    storeCategories?.length ? storeCategories : mockCategories
-  );
+  const [mounted, setMounted] = useState(false);
+  const [categories, setCategories] = useState(mockCategories);
   const [showAddForm, setShowAddForm] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -144,10 +143,15 @@ export default function AdminCategoriesPage() {
     return own + sub;
   }
 
-  // Keep in sync with store context
   useEffect(() => {
-    if (storeCategories?.length) setCategories(storeCategories);
-  }, [storeCategories]);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && Array.isArray(storeCategories)) {
+      setCategories(storeCategories);
+    }
+  }, [mounted, storeCategories]);
 
   // ── Form state
   const [name, setName]       = useState("");
@@ -344,7 +348,7 @@ export default function AdminCategoriesPage() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-900">
+            <h2 className="text-base font-bold text-slate-900" suppressHydrationWarning>
               Active Categories ({categories.length})
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">

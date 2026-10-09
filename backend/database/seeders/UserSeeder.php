@@ -14,7 +14,7 @@ class UserSeeder extends Seeder
             ['email' => 'admin@ligglo.com'],
             [
                 'name'      => 'Ligglo Admin',
-                'password'  => Hash::make('Password123!'),
+                'password'  => Hash::make('ligglo@1234'),
                 'role'      => 'admin',
                 'phone'     => '01700000000',
                 'is_active' => true,

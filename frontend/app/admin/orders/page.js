@@ -48,7 +48,7 @@ export default function AdminOrdersPage() {
       const statusParam = activeTab === "all" ? "" : activeTab.toLowerCase();
       const res = await getAdminOrders({ status: statusParam, search: searchQuery });
 
-      if (res && res.data) {
+      if (res && Array.isArray(res.data)) {
         const normalized = res.data.map((o) => ({
           id: o.order_number || String(o.id),
           rawId: o.id,
@@ -84,11 +84,20 @@ export default function AdminOrdersPage() {
         }));
         setOrders(normalized);
       } else {
-        setOrders(mockOrders);
+        const savedCustomOrders = typeof window !== "undefined" ? localStorage.getItem("store_custom_orders") : null;
+        if (savedCustomOrders) {
+          try { setOrders(JSON.parse(savedCustomOrders)); } catch { setOrders([]); }
+        } else {
+          setOrders([]);
+        }
       }
-    } catch (err) {
-      console.error("Failed to fetch admin orders:", err);
-      setOrders(mockOrders);
+    } catch {
+      const savedCustomOrders = typeof window !== "undefined" ? localStorage.getItem("store_custom_orders") : null;
+      if (savedCustomOrders) {
+        try { setOrders(JSON.parse(savedCustomOrders)); } catch { setOrders([]); }
+      } else {
+        setOrders([]);
+      }
     } finally {
       setLoading(false);
     }

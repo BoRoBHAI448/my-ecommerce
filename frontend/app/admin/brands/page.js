@@ -1,17 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useStore } from "@/lib/store-context";
 import { mockBrands } from "@/lib/api/mock/data";
 import { Button } from "@/components/ui/Button";
 import { Tag, PlusCircle, Trash2, Edit3, Check } from "lucide-react";
 
 export default function AdminBrandsPage() {
+  const { brands: storeBrands, updateBrands } = useStore();
+  const [mounted, setMounted] = useState(false);
   const [brands, setBrands] = useState(mockBrands);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && Array.isArray(storeBrands)) {
+      setBrands(storeBrands);
+    }
+  }, [mounted, storeBrands]);
 
   function handleDeleteBrand(id) {
     if (confirm("Are you sure you want to delete this brand?")) {
-      setBrands((prev) => prev.filter((b) => b.id !== id));
+      const updated = brands.filter((b) => b.id !== id);
+      setBrands(updated);
+      if (typeof updateBrands === "function") {
+        updateBrands(updated);
+      }
     }
   }
 

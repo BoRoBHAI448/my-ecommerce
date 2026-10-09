@@ -27,7 +27,7 @@ export function Header({ categories: propCategories = [] }) {
     setMounted(true);
   }, []);
 
-  const categories = (mounted && store?.categories?.length) ? store.categories : propCategories;
+  const categories = (mounted && Array.isArray(store?.categories)) ? store.categories : propCategories;
   const { itemCount, toggleDrawer } = useCart();
   const router = useRouter();
 

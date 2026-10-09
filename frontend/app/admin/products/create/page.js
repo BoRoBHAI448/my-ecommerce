@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useStore } from "@/lib/store-context";
 import { mockProducts, mockCategories, mockBrands } from "@/lib/api/mock/data";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -27,6 +28,8 @@ function ProductCreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
+  const { products: storeProducts, updateProducts } = useStore();
+  const allProducts = Array.isArray(storeProducts) ? storeProducts : mockProducts;
 
   // Basic Details
   const [name, setName] = useState("");
@@ -76,10 +79,10 @@ function ProductCreateContent() {
   // Load existing data if edit mode
   useEffect(() => {
     if (editId) {
-      const found = mockProducts.find((p) => p.id === Number(editId));
+      const found = allProducts.find((p) => String(p.id) === String(editId));
       if (found) {
-        setName(found.name);
-        setSlug(found.slug);
+        setName(found.name || "");
+        setSlug(found.slug || "");
         setSelectedCategory(found.category?.slug || "");
         setSelectedBrand(found.brand?.slug || "");
         setDescription(found.description || "");
@@ -206,12 +209,58 @@ function ProductCreateContent() {
     }
 
     setIsSubmitting(true);
+
+    const catObj = mockCategories.find((c) => c.slug === selectedCategory) || {
+      name: selectedCategory || "General",
+      slug: selectedCategory || "general",
+    };
+    const brandObj = mockBrands.find((b) => b.slug === selectedBrand) || (selectedBrand ? { name: selectedBrand, slug: selectedBrand } : null);
+
+    const productPayload = {
+      id: editId ? Number(editId) : Date.now(),
+      name: name.trim(),
+      slug: slug.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      description: description.trim(),
+      selling_price: Number(sellingPrice) || 0,
+      discount_price: discountPrice ? Number(discountPrice) : null,
+      cost_price: costPrice ? Number(costPrice) : null,
+      image: images[0] || "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80",
+      images: images,
+      category: catObj,
+      brand: brandObj,
+      in_stock: isActive,
+      is_featured: isFeatured,
+      options: options,
+      variants: variants.length > 0 ? variants : [
+        {
+          id: Date.now(),
+          sku: `SKU-${Date.now()}`,
+          selling_price: Number(sellingPrice) || 0,
+          stock_quantity: 10,
+          in_stock: isActive,
+        },
+      ],
+    };
+
+    let updatedProducts;
+    if (editId) {
+      updatedProducts = allProducts.map((p) =>
+        String(p.id) === String(editId) ? productPayload : p
+      );
+    } else {
+      updatedProducts = [productPayload, ...allProducts];
+    }
+
+    if (typeof updateProducts === "function") {
+      updateProducts(updatedProducts);
+    }
+
     setToastMessage("Product saved successfully!");
 
     setTimeout(() => {
       setIsSubmitting(false);
       router.push("/admin/products");
-    }, 1200);
+    }, 1000);
   }
 
   return (

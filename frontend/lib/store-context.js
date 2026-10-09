@@ -2,11 +2,65 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 
+import { mockProducts, mockBrands } from "./api/mock/data";
+
+const defaultCoupons = [
+  {
+    id: 1,
+    code: "FREEDEL",
+    type: "delivery",
+    discount: 100,
+    min_order: 1500,
+    usage_count: 84,
+    usage_limit: 200,
+    expiry_date: "2026-12-31",
+    is_active: true,
+  },
+  {
+    id: 2,
+    code: "SAVE10",
+    type: "percent",
+    percent: 10,
+    discount: 10,
+    min_order: 1000,
+    usage_count: 142,
+    usage_limit: 500,
+    expiry_date: "2026-11-30",
+    is_active: true,
+  },
+  {
+    id: 3,
+    code: "WELCOME200",
+    type: "fixed",
+    discount: 200,
+    min_order: 2000,
+    usage_count: 59,
+    usage_limit: 100,
+    expiry_date: "2026-10-31",
+    is_active: true,
+  },
+  {
+    id: 4,
+    code: "FLASH30",
+    type: "percent",
+    percent: 30,
+    discount: 30,
+    min_order: 3500,
+    usage_count: 50,
+    usage_limit: 50,
+    expiry_date: "2026-10-01",
+    is_active: false,
+  },
+];
+
 const StoreContext = createContext(null);
 
-export function StoreProvider({ store: initialStore, initialCategories = [], children }) {
+export function StoreProvider({ store: initialStore, initialCategories = [], initialProducts = [], children }) {
   const [customStore, setCustomStore] = useState(initialStore || null);
   const [categories, setCategories] = useState(initialCategories || []);
+  const [products, setProducts] = useState(initialProducts?.length ? initialProducts : mockProducts);
+  const [brands, setBrands] = useState(mockBrands);
+  const [coupons, setCoupons] = useState(defaultCoupons);
 
   // Keep a ref to the initial props so the mount-only effect can access them
   // without adding them to the dependency array (which would cause infinite loops
@@ -34,10 +88,25 @@ export function StoreProvider({ store: initialStore, initialCategories = [], chi
       }
 
       const savedCats = localStorage.getItem("store_custom_categories");
-      if (savedCats) {
+      if (savedCats !== null) {
         setCategories(JSON.parse(savedCats));
       } else if (initCats?.length) {
         setCategories(initCats);
+      }
+
+      const savedProducts = localStorage.getItem("store_custom_products");
+      if (savedProducts !== null) {
+        setProducts(JSON.parse(savedProducts));
+      }
+
+      const savedBrands = localStorage.getItem("store_custom_brands");
+      if (savedBrands !== null) {
+        setBrands(JSON.parse(savedBrands));
+      }
+
+      const savedCoupons = localStorage.getItem("store_custom_coupons");
+      if (savedCoupons !== null) {
+        setCoupons(JSON.parse(savedCoupons));
       }
     } catch {
       // Ignore parse / storage errors
@@ -100,13 +169,67 @@ export function StoreProvider({ store: initialStore, initialCategories = [], chi
     }
   }, []);
 
+  // Update products catalog live and persist to localStorage
+  const updateProducts = useCallback((newProducts) => {
+    setProducts(newProducts);
+    try {
+      localStorage.setItem("store_custom_products", JSON.stringify(newProducts));
+    } catch {
+      // Ignore quota errors
+    }
+  }, []);
+
+  // Update brands list live and persist to localStorage
+  const updateBrands = useCallback((newBrands) => {
+    setBrands(newBrands);
+    try {
+      localStorage.setItem("store_custom_brands", JSON.stringify(newBrands));
+    } catch {
+      // Ignore quota errors
+    }
+  }, []);
+
+  // Update coupons list live and persist to localStorage
+  const updateCoupons = useCallback((newCoupons) => {
+    setCoupons(newCoupons);
+    try {
+      localStorage.setItem("store_custom_coupons", JSON.stringify(newCoupons));
+    } catch {
+      // Ignore quota errors
+    }
+  }, []);
+
+  // Clear all custom data and reset store to a clean baseline
+  const resetStoreData = useCallback(() => {
+    setCategories([]);
+    setProducts([]);
+    setBrands([]);
+    setCoupons([]);
+    try {
+      localStorage.setItem("store_custom_categories", JSON.stringify([]));
+      localStorage.setItem("store_custom_products", JSON.stringify([]));
+      localStorage.setItem("store_custom_brands", JSON.stringify([]));
+      localStorage.setItem("store_custom_coupons", JSON.stringify([]));
+      localStorage.setItem("store_custom_orders", JSON.stringify([]));
+    } catch {
+      // Ignore quota errors
+    }
+  }, []);
+
   return (
     <StoreContext.Provider
       value={{
         ...(effectiveStore || {}),
         categories,
+        products,
+        brands,
+        coupons,
         updateCategories,
+        updateProducts,
+        updateBrands,
+        updateCoupons,
         updateStore,
+        resetStoreData,
       }}
     >
       {children}
