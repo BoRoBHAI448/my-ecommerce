@@ -16,26 +16,37 @@ import {
   Upload,
   ChevronRight,
   Package,
+  Loader2,
+  Edit2,
+  Pencil,
 } from "lucide-react";
+import { uploadImage } from "@/lib/upload";
+import { Modal } from "@/components/ui/Modal";
 
 // ─── Image Upload Box ────────────────────────────────────────────────────────
 function ImageUploadBox({ value, onChange, label = "Category Image" }) {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  function processFile(file) {
+  async function processFile(file) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       alert("শুধুমাত্র ছবি ফাইল আপলোড করুন (JPG, PNG, WebP, SVG)");
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      alert("ছবির সাইজ সর্বোচ্চ 2MB হতে হবে");
-      return;
+    setUploading(true);
+    try {
+      const res = await uploadImage(file, "/categories");
+      if (res?.url) {
+        onChange(res.url);
+      }
+    } catch (err) {
+      console.error("Category image upload error:", err);
+      alert(`ছবি আপলোড ব্যর্থ হয়েছে: ${err.message || "Unknown error"}`);
+    } finally {
+      setUploading(false);
     }
-    const reader = new FileReader();
-    reader.onloadend = () => onChange(reader.result);
-    reader.readAsDataURL(file);
   }
 
   function handleFileChange(e) {
@@ -55,7 +66,13 @@ function ImageUploadBox({ value, onChange, label = "Category Image" }) {
         {label}
       </label>
 
-      {value ? (
+      {uploading ? (
+        <div className="h-40 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50/50 flex flex-col items-center justify-center gap-2">
+          <Loader2 className="w-7 h-7 text-indigo-600 animate-spin" />
+          <p className="text-xs font-medium text-indigo-700">ImageKit-এ আপলোড হচ্ছে...</p>
+        </div>
+      ) : value ? (
+
         // Preview
         <div className="relative w-full h-40 rounded-xl overflow-hidden border-2 border-slate-200 group">
           <img
@@ -156,12 +173,87 @@ export default function AdminCategoriesPage() {
     }
   }, [mounted, storeCategories]);
 
-  // ── Form state
+  // ── Form state (Create)
   const [name, setName]       = useState("");
   const [slug, setSlug]       = useState("");
   const [parentId, setParentId] = useState("");
   const [image, setImage]     = useState("");
   const [description, setDescription] = useState("");
+
+  // ── Form state (Edit)
+  const [editingItem, setEditingItem] = useState(null); // { type: 'root' | 'sub', category, parentId }
+  const [editName, setEditName] = useState("");
+  const [editSlug, setEditSlug] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editImage, setEditImage] = useState("");
+
+  function startEditCategory(cat) {
+    setEditingItem({ type: "root", category: cat });
+    setEditName(cat.name || "");
+    setEditSlug(cat.slug || "");
+    setEditDescription(cat.description || "");
+    setEditImage(cat.image || "");
+  }
+
+  function startEditSubCategory(parentCat, subCat) {
+    setEditingItem({ type: "sub", category: subCat, parentId: parentCat.id });
+    setEditName(subCat.name || "");
+    setEditSlug(subCat.slug || "");
+    setEditDescription(subCat.description || "");
+    setEditImage(subCat.image || "");
+  }
+
+  function handleEditNameChange(val) {
+    setEditName(val);
+    setEditSlug(
+      val.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "")
+    );
+  }
+
+  function handleSaveEdit(e) {
+    e.preventDefault();
+    if (!editName.trim() || !editingItem) return;
+
+    if (editingItem.type === "root") {
+      const updated = categories.map((c) => {
+        if (String(c.id) === String(editingItem.category.id)) {
+          return {
+            ...c,
+            name: editName.trim(),
+            slug: editSlug.trim() || c.slug,
+            description: editDescription,
+            image: editImage,
+          };
+        }
+        return c;
+      });
+      saveAndSync(updated);
+    } else if (editingItem.type === "sub") {
+      const updated = categories.map((c) => {
+        if (String(c.id) === String(editingItem.parentId)) {
+          return {
+            ...c,
+            children: (c.children || []).map((sub) => {
+              if (String(sub.id) === String(editingItem.category.id)) {
+                return {
+                  ...sub,
+                  name: editName.trim(),
+                  slug: editSlug.trim() || sub.slug,
+                  description: editDescription,
+                  image: editImage,
+                };
+              }
+              return sub;
+            }),
+          };
+        }
+        return c;
+      });
+      saveAndSync(updated);
+    }
+
+    setEditingItem(null);
+  }
 
   function handleNameChange(val) {
     setName(val);
@@ -453,6 +545,14 @@ export default function AdminCategoriesPage() {
                           </span>
                           <button
                             type="button"
+                            title="Sub-category এডিট করুন"
+                            onClick={() => startEditSubCategory(cat, sub)}
+                            className="ml-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                          >
+                            <Pencil className="w-2.5 h-2.5" />
+                          </button>
+                          <button
+                            type="button"
                             title="Sub-category মুছুন"
                             onClick={() => handleDeleteSubcategory(cat.id, sub.id)}
                             className="ml-0.5 text-slate-300 hover:text-red-500 transition-colors"
@@ -467,15 +567,25 @@ export default function AdminCategoriesPage() {
                   )}
                 </div>
 
-                {/* Delete */}
-                <button
-                  type="button"
-                  onClick={() => handleDeleteCategory(cat.id)}
-                  className="p-1.5 rounded-lg text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
-                  title="Category মুছুন"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {/* Actions: Edit & Delete */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => startEditCategory(cat)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                    title="Category এডিট করুন"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCategory(cat.id)}
+                    className="p-1.5 rounded-lg text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    title="Category মুছুন"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -489,6 +599,60 @@ export default function AdminCategoriesPage() {
           )}
         </div>
       </div>
+
+      {/* ── Edit Category Modal ────────────────────────────────────────────── */}
+      {editingItem && (
+        <Modal
+          isOpen={!!editingItem}
+          onClose={() => setEditingItem(null)}
+          title={editingItem.type === "root" ? "Category এডিট করুন" : "Sub-category এডিট করুন"}
+        >
+          <form onSubmit={handleSaveEdit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Category Name"
+                placeholder="e.g. Shoes, Bags, Men's"
+                value={editName}
+                onChange={(e) => handleEditNameChange(e.target.value)}
+                required
+              />
+              <Input
+                label="URL Slug"
+                placeholder="e.g. shoes"
+                value={editSlug}
+                onChange={(e) => setEditSlug(e.target.value)}
+                required
+              />
+            </div>
+
+            <Input
+              label="Description (Optional)"
+              placeholder="এই category সম্পর্কে সংক্ষিপ্ত বিবরণ"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+            />
+
+            <ImageUploadBox
+              value={editImage}
+              onChange={setEditImage}
+              label={editingItem.type === "root" ? "Category Cover Image" : "Sub-category Image (Optional)"}
+            />
+
+            <div className="pt-3 border-t border-slate-100 flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingItem(null)}
+              >
+                বাতিল
+              </Button>
+              <Button type="submit" variant="primary">
+                পরিবর্তন সেভ করুন
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

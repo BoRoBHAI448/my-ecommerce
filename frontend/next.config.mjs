@@ -10,6 +10,10 @@ const nextConfig = {
         hostname: "images.unsplash.com",
       },
       {
+        protocol: "https",
+        hostname: "ik.imagekit.io",
+      },
+      {
         protocol: "http",
         hostname: "127.0.0.1",
       },

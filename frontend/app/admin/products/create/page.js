@@ -24,7 +24,9 @@ import {
   Info,
   HelpCircle,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
+import { uploadImage } from "@/lib/upload";
 
 const COLOR_PRESETS = [
   { name: "Black", hex: "#0f172a" },
@@ -95,6 +97,8 @@ function ProductCreateContent() {
   const [toastMessage, setToastMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState("");
 
   function handleApplyBulkStock() {
     const qty = Number(bulkStockInput);
@@ -403,19 +407,40 @@ function ProductCreateContent() {
     setNewImageUrl("");
   }
 
-  // Handle file upload from local computer
-  function handleFileUpload(files) {
+  // Handle file upload from local computer via ImageKit
+  async function handleFileUpload(files) {
     if (!files || files.length === 0) return;
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          setImages((prev) => [...prev, e.target.result]);
+    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    if (imageFiles.length === 0) {
+      alert("শুধুমাত্র ছবি ফাইল আপলোড করুন (JPG, PNG, WebP, SVG)");
+      return;
+    }
+
+    setUploadingImages(true);
+    setUploadProgressText(`ছবি আপলোড হচ্ছে (0/${imageFiles.length})...`);
+
+    try {
+      const uploadedUrls = [];
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+        setUploadProgressText(`ছবি আপলোড হচ্ছে (${i + 1}/${imageFiles.length})...`);
+        const res = await uploadImage(file, "/products");
+        if (res?.url) {
+          uploadedUrls.push(res.url);
         }
-      };
-      reader.readAsDataURL(file);
-    });
+      }
+      if (uploadedUrls.length > 0) {
+        setImages((prev) => [...prev, ...uploadedUrls]);
+        setToastMessage(`${uploadedUrls.length} টি ছবি সফলভাবে ImageKit ক্লাউডে আপলোড হয়েছে!`);
+        setTimeout(() => setToastMessage(""), 3000);
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert(`ছবি আপলোড করতে সমস্যা হয়েছে: ${err.message || "Unknown error"}`);
+    } finally {
+      setUploadingImages(false);
+      setUploadProgressText("");
+    }
   }
 
   // Remove image
@@ -718,23 +743,48 @@ function ProductCreateContent() {
             </h2>
 
             {/* File Upload Box */}
-            <div className="border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-xl p-6 text-center bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer group">
+            <div
+              className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                uploadingImages
+                  ? "border-indigo-400 bg-indigo-50/50 cursor-wait"
+                  : "border-slate-200 hover:border-indigo-500 bg-slate-50/50 hover:bg-slate-50 cursor-pointer group"
+              }`}
+            >
               <input
                 type="file"
                 multiple
                 accept="image/*"
-                onChange={(e) => handleFileUpload(e.target.files)}
+                disabled={uploadingImages}
+                onChange={(e) => {
+                  handleFileUpload(e.target.files);
+                  e.target.value = "";
+                }}
                 className="hidden"
                 id="product-file-upload"
               />
-              <label htmlFor="product-file-upload" className="cursor-pointer block space-y-2">
-                <UploadCloud className="w-8 h-8 text-indigo-500 mx-auto group-hover:scale-110 transition-transform" />
-                <p className="text-xs font-bold text-slate-800">
-                  কম্পিউটার থেকে ছবি সিলেক্ট করুন (Click to Upload Images or Drag & Drop)
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  JPG, PNG, WebP, SVG সাপোর্টেড (একাধিক ছবি একসাথে সিলেক্ট করা যাবে)
-                </p>
+              <label
+                htmlFor={uploadingImages ? undefined : "product-file-upload"}
+                className={`${uploadingImages ? "cursor-wait" : "cursor-pointer"} block space-y-2`}
+              >
+                {uploadingImages ? (
+                  <div className="py-2 space-y-2">
+                    <Loader2 className="w-8 h-8 text-indigo-600 mx-auto animate-spin" />
+                    <p className="text-xs font-bold text-indigo-700 animate-pulse">
+                      {uploadProgressText || "ImageKit ক্লাউডে আপলোড হচ্ছে..."}
+                    </p>
+                    <p className="text-[11px] text-slate-500">অনুগ্রহ করে একটু অপেক্ষা করুন</p>
+                  </div>
+                ) : (
+                  <>
+                    <UploadCloud className="w-8 h-8 text-indigo-500 mx-auto group-hover:scale-110 transition-transform" />
+                    <p className="text-xs font-bold text-slate-800">
+                      কম্পিউটার থেকে ছবি সিলেক্ট করুন (Click to Upload or Drag & Drop)
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      JPG, PNG, WebP, SVG সাপোর্টেড • সরাসরি ক্লাউডে সেভ হবে এবং কোনোদিন হারাবে না
+                    </p>
+                  </>
+                )}
               </label>
             </div>
 

@@ -117,7 +117,9 @@ export default function AdminProductsPage() {
   const stats = useMemo(() => {
     const total = products.length;
     let inStockCount = 0;
+    let inStockUnits = 0;
     let lowStockCount = 0;
+    let lowStockUnits = 0;
     let outOfStockCount = 0;
     let totalStockUnits = 0;
 
@@ -128,12 +130,14 @@ export default function AdminProductsPage() {
         outOfStockCount++;
       } else if (units < 10) {
         lowStockCount++;
+        lowStockUnits += units;
       } else {
         inStockCount++;
+        inStockUnits += units;
       }
     });
 
-    return { total, inStockCount, lowStockCount, outOfStockCount, totalStockUnits };
+    return { total, inStockCount, inStockUnits, lowStockCount, lowStockUnits, outOfStockCount, totalStockUnits };
   }, [products]);
 
   // Filter & Sort
@@ -306,9 +310,15 @@ export default function AdminProductsPage() {
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Total Products
             </p>
-            <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{stats.total}</p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-2xl font-bold text-slate-900" suppressHydrationWarning>{stats.total}</span>
+              <span className="text-xs text-slate-500 font-medium">Items</span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-0.5" suppressHydrationWarning>
+              {stats.totalStockUnits} total inventory units
+            </p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
             <Package className="w-5 h-5" />
           </div>
         </div>
@@ -316,11 +326,17 @@ export default function AdminProductsPage() {
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">
-              In Stock
+              In Stock Units
             </p>
-            <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{stats.inStockCount}</p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-2xl font-bold text-slate-900" suppressHydrationWarning>{stats.totalStockUnits}</span>
+              <span className="text-xs text-emerald-600 font-semibold">Units</span>
+            </div>
+            <p className="text-[11px] text-emerald-600/80 mt-0.5" suppressHydrationWarning>
+              Across {stats.inStockCount} active products
+            </p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
@@ -330,9 +346,15 @@ export default function AdminProductsPage() {
             <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider">
               Low Stock Alert
             </p>
-            <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{stats.lowStockCount}</p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-2xl font-bold text-slate-900" suppressHydrationWarning>{stats.lowStockCount}</span>
+              <span className="text-xs text-amber-600 font-semibold">Products</span>
+            </div>
+            <p className="text-[11px] text-amber-600/80 mt-0.5" suppressHydrationWarning>
+              {stats.lowStockUnits > 0 ? `${stats.lowStockUnits} units remaining` : "Inventory healthy"}
+            </p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
             <AlertTriangle className="w-5 h-5" />
           </div>
         </div>
@@ -342,9 +364,15 @@ export default function AdminProductsPage() {
             <p className="text-xs font-semibold text-rose-600 uppercase tracking-wider">
               Out of Stock
             </p>
-            <p className="text-2xl font-bold text-slate-900 mt-1" suppressHydrationWarning>{stats.outOfStockCount}</p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-2xl font-bold text-slate-900" suppressHydrationWarning>{stats.outOfStockCount}</span>
+              <span className="text-xs text-rose-600 font-semibold">Products</span>
+            </div>
+            <p className="text-[11px] text-rose-600/80 mt-0.5" suppressHydrationWarning>
+              {stats.outOfStockCount > 0 ? "Requires restock" : "All products available"}
+            </p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
             <XCircle className="w-5 h-5" />
           </div>
         </div>

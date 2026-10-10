@@ -13,7 +13,10 @@ import {
   CheckCircle2,
   Eye,
   Sparkles,
+  UploadCloud,
+  Loader2,
 } from "lucide-react";
+import { uploadImage } from "@/lib/upload";
 
 export default function AdminBannersPage() {
   const [heroBanners, setHeroBanners] = useState(mockBanners.hero || []);
@@ -21,6 +24,7 @@ export default function AdminBannersPage() {
   const [activeTab, setActiveTab] = useState("hero");
   const [toastMessage, setToastMessage] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
   // Form State
   const [title, setTitle] = useState("");
@@ -29,6 +33,28 @@ export default function AdminBannersPage() {
   const [ctaText, setCtaText] = useState("Shop Collection");
   const [link, setLink] = useState("/shop");
   const [imageUrl, setImageUrl] = useState("");
+
+  async function handleBannerFileUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("অনুগ্রহ করে একটি সঠিক ছবি ফাইল সিলেক্ট করুন");
+      return;
+    }
+    setUploadingBanner(true);
+    try {
+      const res = await uploadImage(file, "/banners");
+      if (res?.url) {
+        setImageUrl(res.url);
+      }
+    } catch (err) {
+      console.error("Banner upload error:", err);
+      alert(`ব্যানার আপলোড ব্যর্থ হয়েছে: ${err.message || "Unknown error"}`);
+    } finally {
+      setUploadingBanner(false);
+      e.target.value = "";
+    }
+  }
 
   function showToast(msg) {
     setToastMessage(msg);
@@ -311,12 +337,51 @@ export default function AdminBannersPage() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                High-Resolution Image URL <span className="text-rose-500">*</span>
+                Banner Image <span className="text-rose-500">*</span>
               </label>
+
+              {/* Upload from device */}
+              <div className="mb-2">
+                <input
+                  type="file"
+                  id="banner-file-input"
+                  accept="image/*"
+                  disabled={uploadingBanner}
+                  onChange={handleBannerFileUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="banner-file-input"
+                  className={`flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg transition-colors text-xs font-medium ${
+                    uploadingBanner
+                      ? "border-indigo-300 bg-indigo-50 text-indigo-700 cursor-wait"
+                      : "border-slate-200 hover:border-indigo-500 bg-slate-50 hover:bg-indigo-50/50 text-slate-700 cursor-pointer"
+                  }`}
+                >
+                  {uploadingBanner ? (
+                    <>
+                      <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+                      <span>ImageKit ক্লাউডে আপলোড হচ্ছে...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud className="w-4 h-4 text-indigo-600" />
+                      <span>কম্পিউটার থেকে ব্যানার আপলোড করুন</span>
+                    </>
+                  )}
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 my-2 text-xs text-slate-400">
+                <div className="flex-1 border-t border-slate-200"></div>
+                <span>অথবা ইমেজ URL দিন</span>
+                <div className="flex-1 border-t border-slate-200"></div>
+              </div>
+
               <input
                 type="url"
                 required
-                placeholder="https://images.unsplash.com/..."
+                placeholder="https://ik.imagekit.io/... অথবা https://images.unsplash.com/..."
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"

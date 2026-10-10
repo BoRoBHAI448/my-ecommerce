@@ -15,11 +15,14 @@ import {
   Trash2,
   Globe,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
+import { uploadImage } from "@/lib/upload";
 
 export default function AdminThemeSettingsPage() {
   const store = useStore();
   const fileInputRef = useRef(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const [form, setForm] = useState({
     name: store?.name || "Apex Cart",
@@ -42,37 +45,43 @@ export default function AdminThemeSettingsPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  // Handle Logo File Upload (PNG, JPG, SVG, WebP)
-  function handleLogoFileUpload(e) {
+  // Handle Logo File Upload (PNG, JPG, SVG, WebP) to ImageKit
+  async function handleLogoFileUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 3 * 1024 * 1024) {
-      alert("File size exceeds 3MB limit. Please upload a smaller logo.");
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload an image file (PNG, JPG, SVG, WebP)");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target.result;
-      setForm((prev) => ({
-        ...prev,
-        logo: dataUrl,
-        favicon: autoSyncFavicon ? dataUrl : prev.favicon,
-      }));
+    setUploadingLogo(true);
+    try {
+      const res = await uploadImage(file, "/theme");
+      if (res?.url) {
+        setForm((prev) => ({
+          ...prev,
+          logo: res.url,
+          favicon: autoSyncFavicon ? res.url : prev.favicon,
+        }));
 
-      // Immediately sync favicon to active browser tab
-      if (autoSyncFavicon) {
-        let link = document.querySelector("link[rel~='icon']");
-        if (!link) {
-          link = document.createElement("link");
-          link.rel = "icon";
-          document.head.appendChild(link);
+        if (autoSyncFavicon) {
+          let link = document.querySelector("link[rel~='icon']");
+          if (!link) {
+            link = document.createElement("link");
+            link.rel = "icon";
+            document.head.appendChild(link);
+          }
+          link.href = res.url;
         }
-        link.href = dataUrl;
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Logo upload error:", err);
+      alert(`Logo upload failed: ${err.message || "Unknown error"}`);
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = "";
+    }
   }
 
   // Remove uploaded logo
