@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ["192.168.0.125", "localhost"],
   cacheComponents: true,
   partialPrefetching: true,
   reactCompiler: true,
@@ -12,6 +13,10 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "ik.imagekit.io",
+      },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
       },
       {
         protocol: "http",

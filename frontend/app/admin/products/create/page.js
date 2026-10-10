@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store-context";
-import { createAdminProduct } from "@/lib/api/admin";
 import { mockProducts, mockCategories, mockBrands } from "@/lib/api/mock/data";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
-import { Badge } from "@/components/ui/Badge";
+import { uploadProductImageToSupabase } from "@/lib/supabase/storage";
+import { createAdminProductInSupabase } from "@/lib/supabase/products";
 import {
   ArrowLeft,
   Package,
@@ -22,38 +20,161 @@ import {
   Image as ImageIcon,
   DollarSign,
   Info,
+  Eye,
+  ExternalLink,
   HelpCircle,
   AlertCircle,
   Loader2,
+  RefreshCw,
+  X,
+  Check,
+  Star,
+  Shirt,
+  Footprints,
+  ShoppingBag,
+  SlidersHorizontal,
+  Tag,
 } from "lucide-react";
-import { uploadImage } from "@/lib/upload";
 
-const COLOR_PRESETS = [
-  { name: "Black", hex: "#0f172a" },
-  { name: "White", hex: "#ffffff", border: true },
-  { name: "Brown", hex: "#78350f" },
-  { name: "Tan", hex: "#d97706" },
-  { name: "Navy", hex: "#1e3a8a" },
-  { name: "Blue", hex: "#2563eb" },
-  { name: "Red", hex: "#dc2626" },
-  { name: "Maroon", hex: "#881337" },
-  { name: "Green", hex: "#16a34a" },
-  { name: "Olive", hex: "#65a30d" },
-  { name: "Beige", hex: "#fef3c7" },
-  { name: "Grey", hex: "#4b5563" },
-  { name: "Pink", hex: "#ec4899" },
-  { name: "Gold", hex: "#eab308" },
-  { name: "Silver", hex: "#9ca3af" },
+// ── Product Archetype Configurations ──────────────────────────────────────────
+const PRODUCT_TYPES = [
+  {
+    id: "clothing",
+    name: "Clothing & Dresses",
+    nameBn: "পোশাক / ড্রেস / টপস",
+    icon: Shirt,
+    titlePlaceholder: "e.g. Column Knit Maxi Dress",
+    taglinePlaceholder: "Made for effortless days with fluid movement and quiet luxury tailoring...",
+    defaultCategory: "dresses",
+    sizeSystem: "apparel",
+    allowedSizeSystems: ["apparel", "one_size"],
+    badgeLabel: "Dress / Apparel",
+    specsTemplate: [
+      { label: "Fabric / Material", key: "material", placeholder: "e.g. 100% Organic Linen Blend" },
+      { label: "Fit & Cut", key: "fit", placeholder: "e.g. Relaxed fluid silhouette" },
+      { label: "Care Instructions", key: "care", placeholder: "e.g. Hand wash cold or dry clean" },
+    ],
+  },
+  {
+    id: "pants",
+    name: "Pants & Trousers",
+    nameBn: "প্যান্ট / ট্রাউজার / জিন্স",
+    icon: SlidersHorizontal,
+    titlePlaceholder: "e.g. Wide-Leg Pleated Wool Trouser",
+    taglinePlaceholder: "Designed with a high rise and relaxed drape, tailored from breathable worsted wool...",
+    defaultCategory: "trousers",
+    sizeSystem: "waist",
+    allowedSizeSystems: ["waist", "apparel"],
+    badgeLabel: "Trousers & Pants",
+    specsTemplate: [
+      { label: "Fabric / Weave", key: "material", placeholder: "e.g. 100% Worsted Wool Twill" },
+      { label: "Rise & Leg Style", key: "fit", placeholder: "e.g. High-Rise, Wide-Leg drape" },
+      { label: "Waist Closure", key: "closure", placeholder: "e.g. Concealed hook & zip fly" },
+    ],
+  },
+  {
+    id: "shoes",
+    name: "Shoes & Footwear",
+    nameBn: "জুতো / স্নিকার্স / লোফার",
+    icon: Footprints,
+    titlePlaceholder: "e.g. Italian Leather Tassel Loafer",
+    taglinePlaceholder: "Handcrafted from full-grain calfskin leather with durable Blake-stitched sole...",
+    defaultCategory: "shoes-loafers",
+    sizeSystem: "shoes_eu",
+    allowedSizeSystems: ["shoes_eu", "shoes_us"],
+    badgeLabel: "Footwear & Shoes",
+    specsTemplate: [
+      { label: "Upper Material", key: "material", placeholder: "e.g. Full-grain Italian Calfskin" },
+      { label: "Outsole Type", key: "sole", placeholder: "e.g. Vibram Rubber Lug Sole" },
+      { label: "Insole & Lining", key: "insole", placeholder: "e.g. Cushioned leather footbed" },
+    ],
+  },
+  {
+    id: "bags",
+    name: "Bags & Leather",
+    nameBn: "ব্যাগ / পার্স / ব্যাকপ্যাক",
+    icon: ShoppingBag,
+    titlePlaceholder: "e.g. Minimalist Soft Calfskin Tote",
+    taglinePlaceholder: "Spacious everyday companion with reinforced handles and interior zip pocket...",
+    defaultCategory: "bags-totes",
+    sizeSystem: "bags",
+    allowedSizeSystems: ["bags", "one_size"],
+    badgeLabel: "Bags & Leather",
+    specsTemplate: [
+      { label: "Leather Finish", key: "material", placeholder: "e.g. Supple Pebbled Calfskin" },
+      { label: "Dimensions", key: "dimensions", placeholder: "e.g. 38cm (W) x 32cm (H) x 14cm (D)" },
+      { label: "Hardware & Closure", key: "hardware", placeholder: "e.g. Magnetic snap & brass hardware" },
+    ],
+  },
+  {
+    id: "accessories",
+    name: "Accessories & Other",
+    nameBn: "বেল্ট / সানগ্লাস / অন্যান্য",
+    icon: Sparkles,
+    titlePlaceholder: "e.g. Handcrafted Brass Buckle Leather Belt",
+    taglinePlaceholder: "Accenting minimal wardrobes with timeless understated craftsmanship...",
+    defaultCategory: "accessories-belts",
+    sizeSystem: "one_size",
+    allowedSizeSystems: ["one_size", "waist"],
+    badgeLabel: "Accessories",
+    specsTemplate: [
+      { label: "Material & Build", key: "material", placeholder: "e.g. Solid Brass & Bridle Leather" },
+      { label: "Finish / Accent", key: "finish", placeholder: "e.g. Satin brushed gold" },
+    ],
+  },
 ];
 
-const SHOE_SIZE_PRESETS = ["38", "39", "40", "41", "42", "43", "44", "45", "46"];
-const CLOTHING_SIZE_PRESETS = ["XS", "S", "M", "L", "XL", "2XL", "3XL"];
+// ── Sizing Presets by Category System ─────────────────────────────────────────
+const SIZE_SYSTEMS = {
+  apparel: {
+    label: "Apparel (XS - 3XL)",
+    options: ["XS", "S", "M", "L", "XL", "2XL", "3XL"],
+  },
+  waist: {
+    label: "Waist Inches (28 - 38)",
+    options: ["28", "29", "30", "31", "32", "33", "34", "36", "38"],
+  },
+  shoes_eu: {
+    label: "EU Shoe (38 - 46)",
+    options: ["38", "39", "40", "41", "42", "43", "44", "45", "46"],
+  },
+  shoes_us: {
+    label: "US Shoe (6 - 12)",
+    options: ["6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10", "10.5", "11", "12"],
+  },
+  bags: {
+    label: "Bag Sizes",
+    options: ["One Size", "Mini", "Small", "Medium", "Large"],
+  },
+  one_size: {
+    label: "One Size / Standard",
+    options: ["One Size", "Standard", "Free Size"],
+  },
+};
+
+const COLORS_PRESET = [
+  { name: "Noir Black", hex: "#18181b" },
+  { name: "Beige / Oatmeal", hex: "#e5ded4" },
+  { name: "Cream / White", hex: "#fafaf9", border: true },
+  { name: "Espresso Brown", hex: "#3b2219" },
+  { name: "Terracotta", hex: "#9a3412" },
+  { name: "Sage Olive", hex: "#4d7c0f" },
+  { name: "Navy Blue", hex: "#1e3a8a" },
+  { name: "Charcoal Grey", hex: "#374151" },
+  { name: "Tan / Camel", hex: "#b45309" },
+  { name: "Burgundy Wine", hex: "#831843" },
+];
 
 function ProductCreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
-  const { categories: storeCategories, brands: storeBrands, products: storeProducts, updateProducts } = useStore();
+  const {
+    categories: storeCategories,
+    brands: storeBrands,
+    products: storeProducts,
+    updateProducts,
+  } = useStore();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -61,693 +182,628 @@ function ProductCreateContent() {
   }, []);
 
   const allProducts = Array.isArray(storeProducts) ? storeProducts : mockProducts;
-  const categoriesList = mounted && Array.isArray(storeCategories) ? storeCategories : mockCategories;
-  const brandsList = mounted && Array.isArray(storeBrands) ? storeBrands : mockBrands;
 
-  // Basic Details
+  // ── Form State ────────────────────────────────────────────────────────────
+  const [productType, setProductType] = useState("clothing");
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedSubCategory, setSelectedSubCategory] = useState("");
-  const [selectedBrand, setSelectedBrand] = useState("");
+  const [isSlugCustom, setIsSlugCustom] = useState(false);
+  const [gender, setGender] = useState("Women");
+  const [selectedCategory, setSelectedCategory] = useState("dresses");
+  const [sku, setSku] = useState("");
+  const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
-  const [isFeatured, setIsFeatured] = useState(false);
-  const [isActive, setIsActive] = useState(true);
 
-  // Pricing
+  // Specifications
+  const [specs, setSpecs] = useState({});
+
+  // Pricing & Stock
+  const [regularPrice, setRegularPrice] = useState("");
   const [sellingPrice, setSellingPrice] = useState("");
-  const [discountPrice, setDiscountPrice] = useState("");
-  const [costPrice, setCostPrice] = useState("");
+  const [stockCount, setStockCount] = useState("44");
+  const [customBadge, setCustomBadge] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [isFeatured, setIsFeatured] = useState(false);
 
   // Media
   const [images, setImages] = useState([]);
-  const [newImageUrl, setNewImageUrl] = useState("");
-
-  // Variant Options Builder (e.g. Size, Color)
-  const [options, setOptions] = useState([
-    { name: "Size", values: ["40", "41", "42", "43"] },
-    { name: "Color", values: ["Black", "Brown"] },
-  ]);
-  const [newOptionName, setNewOptionName] = useState("");
-
-  // Generated Variants Matrix
-  const [variants, setVariants] = useState([]);
-  const [bulkStockInput, setBulkStockInput] = useState("10");
-  const [bulkPriceInput, setBulkPriceInput] = useState("");
-  const [toastMessage, setToastMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState("");
 
-  function handleApplyBulkStock() {
-    const qty = Number(bulkStockInput);
-    if (isNaN(qty) || qty < 0) return;
-    setVariants((prev) =>
-      prev.map((v) => ({
-        ...v,
-        stock_quantity: qty,
-        in_stock: qty > 0,
-      }))
-    );
-  }
+  // Variants & Sizing Mode
+  const [hasVariants, setHasVariants] = useState(false);
+  const [activeSizeSystem, setActiveSizeSystem] = useState("apparel");
+  const [selectedSizes, setSelectedSizes] = useState(["S", "M", "L"]);
+  const [customSizeInput, setCustomSizeInput] = useState("");
+  const [customSizes, setCustomSizes] = useState([]);
 
-  function handleApplyBulkPrice() {
-    const price = Number(bulkPriceInput || discountPrice || sellingPrice);
-    if (isNaN(price) || price < 0) return;
-    setVariants((prev) =>
-      prev.map((v) => ({
-        ...v,
-        selling_price: price,
-      }))
-    );
-  }
+  // Colors
+  const [selectedColors, setSelectedColors] = useState(["Noir Black"]);
+  const [customColorInput, setCustomColorInput] = useState("");
+  const [allColors, setAllColors] = useState(COLORS_PRESET);
 
-  // Price change handlers with auto variant sync
-  function handleSellingPriceChange(val) {
-    setSellingPrice(val);
-    const effective = discountPrice ? Number(discountPrice) : (Number(val) || 0);
-    if (effective > 0) {
-      setVariants((prev) =>
-        prev.map((v) => ({
-          ...v,
-          selling_price: effective,
-          discount_price: discountPrice ? Number(discountPrice) : null,
-        }))
-      );
+  // UI Alerts
+  const [toastMessage, setToastMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const activeConfig = useMemo(() => {
+    return PRODUCT_TYPES.find((pt) => pt.id === productType) || PRODUCT_TYPES[0];
+  }, [productType]);
+
+  // Compute strictly relevant size systems for the active product archetype
+  const relevantSizeSystems = useMemo(() => {
+    const allowed = activeConfig?.allowedSizeSystems || [activeConfig?.sizeSystem || "apparel"];
+    return allowed
+      .map((key) => [key, SIZE_SYSTEMS[key]])
+      .filter(([_, val]) => Boolean(val));
+  }, [activeConfig]);
+
+  // Handle switching size system within the relevant category
+  function handleSwitchSizeSystem(sysKey) {
+    setActiveSizeSystem(sysKey);
+    // Populate sensible default sizes for this system
+    if (sysKey === "shoes_eu") {
+      setSelectedSizes(["40", "41", "42", "43"]);
+    } else if (sysKey === "shoes_us") {
+      setSelectedSizes(["8", "8.5", "9", "9.5", "10"]);
+    } else if (sysKey === "waist") {
+      setSelectedSizes(["30", "32", "34"]);
+    } else if (sysKey === "apparel") {
+      setSelectedSizes(["S", "M", "L", "XL"]);
+    } else if (sysKey === "bags") {
+      setSelectedSizes(["Small", "Medium", "Large"]);
+    } else if (sysKey === "one_size") {
+      setSelectedSizes(["One Size"]);
+    } else {
+      setSelectedSizes([]);
     }
   }
 
-  function handleDiscountPriceChange(val) {
-    setDiscountPrice(val);
-    const effective = val ? Number(val) : (Number(sellingPrice) || 0);
-    if (effective > 0) {
-      setVariants((prev) =>
-        prev.map((v) => ({
-          ...v,
-          selling_price: effective,
-          discount_price: val ? Number(val) : null,
-        }))
-      );
+  // Handle switching product type (e.g. Shoes, Pants, Dresses, Bags)
+  function handleSelectProductType(typeId) {
+    setProductType(typeId);
+    const cfg = PRODUCT_TYPES.find((pt) => pt.id === typeId);
+    if (cfg) {
+      setActiveSizeSystem(cfg.sizeSystem);
+      setSelectedCategory(cfg.defaultCategory);
+
+      // Default reasonable sizes based on type
+      if (cfg.sizeSystem === "shoes_eu") {
+        setSelectedSizes(["40", "41", "42", "43"]);
+      } else if (cfg.sizeSystem === "shoes_us") {
+        setSelectedSizes(["8", "8.5", "9", "9.5", "10"]);
+      } else if (cfg.sizeSystem === "waist") {
+        setSelectedSizes(["30", "32", "34"]);
+      } else if (cfg.sizeSystem === "bags") {
+        setSelectedSizes(["Small", "Medium", "Large"]);
+      } else if (cfg.sizeSystem === "one_size") {
+        setSelectedSizes(["One Size"]);
+      } else {
+        setSelectedSizes(["S", "M", "L"]);
+      }
     }
   }
 
-  // Auto-slug generator
+  // Auto-generate slug and SKU when name changes
   function handleNameChange(val) {
     setName(val);
-    if (!editId) {
-      setSlug(
-        val
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)+/g, "")
-      );
+    if (!isSlugCustom) {
+      const generatedSlug = val
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      setSlug(generatedSlug);
+    }
+    if (!sku) {
+      const prefix = productType === "shoes" ? "SH" : productType === "pants" ? "PN" : productType === "bags" ? "BG" : "FV";
+      const randomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+      setSku(`${prefix}-${randomCode}`);
     }
   }
 
-  // Load existing data if edit mode
+  // Auto-calculated discount percentage
+  const calculatedDiscountBadge = useMemo(() => {
+    if (customBadge.trim()) return customBadge.trim();
+    const reg = parseFloat(regularPrice);
+    const sell = parseFloat(sellingPrice);
+    if (reg > 0 && sell > 0 && reg > sell) {
+      const pct = Math.round(((reg - sell) / reg) * 100);
+      return `${pct}%`;
+    }
+    return "";
+  }, [regularPrice, sellingPrice, customBadge]);
+
+  // Pre-fill if editing
   useEffect(() => {
-    if (editId) {
-      let currentProductsList = allProducts;
-      if (typeof window !== "undefined") {
-        try {
-          const saved = localStorage.getItem("store_custom_products");
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              currentProductsList = parsed;
-            }
-          }
-        } catch {}
-      }
-
-      const found = currentProductsList.find((p) => String(p.id) === String(editId));
-      if (found) {
-        setName(found.name || "");
-        setSlug(found.slug || "");
-
-        // Category resolution
-        const catRef = found.category;
-        let catIdentifier = "";
-        if (typeof catRef === "object" && catRef !== null) {
-          catIdentifier = catRef.slug || (catRef.id ? String(catRef.id) : catRef.name || "");
-        } else if (typeof catRef === "string") {
-          catIdentifier = catRef;
-        }
-
-        // Find primary or sub-category match in categoriesList
-        let foundCat = categoriesList.find(
-          (c) =>
-            c.slug === catIdentifier ||
-            String(c.id) === String(catIdentifier) ||
-            c.name?.toLowerCase() === catIdentifier.toLowerCase() ||
-            String(c.id) === String(found.category_id)
-        );
-
-        if (!foundCat && categoriesList.length > 0) {
-          for (const mainCat of categoriesList) {
-            if (mainCat.children && Array.isArray(mainCat.children)) {
-              const subMatch = mainCat.children.find(
-                (s) =>
-                  s.slug === catIdentifier ||
-                  String(s.id) === String(catIdentifier) ||
-                  s.name?.toLowerCase() === catIdentifier.toLowerCase()
-              );
-              if (subMatch) {
-                foundCat = mainCat;
-                setSelectedSubCategory(subMatch.slug || String(subMatch.id));
-                break;
-              }
-            }
-          }
-        }
-
-        if (foundCat) {
-          setSelectedCategory(foundCat.slug || String(foundCat.id));
-        } else if (catIdentifier) {
-          setSelectedCategory(catIdentifier);
-        }
-
-        // Brand resolution
-        const brandRef = found.brand;
-        let brandIdentifier = "";
-        if (typeof brandRef === "object" && brandRef !== null) {
-          brandIdentifier = brandRef.slug || (brandRef.id ? String(brandRef.id) : brandRef.name || "");
-        } else if (typeof brandRef === "string") {
-          brandIdentifier = brandRef;
-        }
-        setSelectedBrand(brandIdentifier);
-
-        setDescription(found.description || "");
-        setSellingPrice(found.selling_price || "");
-        setDiscountPrice(found.discount_price || "");
-        setCostPrice(found.cost_price || "");
-        setIsFeatured(!!found.is_featured);
-        setIsActive(found.in_stock !== false);
-
-        if (found.images && found.images.length > 0) {
-          setImages(found.images);
-        } else if (found.image) {
-          setImages([found.image]);
-        }
-
-        if (found.options && found.options.length > 0) {
-          setOptions(found.options);
-        }
-        if (found.variants && found.variants.length > 0) {
-          setVariants(found.variants);
-        }
-      }
-    } else {
-      // Auto-generate initial matrix for new product
-      generateMatrixFromOptions(options, 2500, []);
-    }
-  }, [editId, mounted, storeProducts, categoriesList]);
-
-  // Generate Cartesian product matrix preserving existing customization
-  function generateMatrixFromOptions(opts, basePrice = 0, existingVariants = variants) {
-    const validOpts = opts.filter((o) => o.name && o.values.length > 0);
-    if (validOpts.length === 0) {
-      setVariants([]);
-      return;
-    }
-
-    function cartesian(arrays) {
-      return arrays.reduce(
-        (a, b) => a.flatMap((d) => b.map((e) => [d, e].flat())),
-        [[]]
+    if (!editId || !mounted) return;
+    const found = allProducts.find((p) => String(p.id) === String(editId));
+    if (found) {
+      setName(found.name || "");
+      setSlug(found.slug || "");
+      setIsSlugCustom(true);
+      setSku(found.sku || "");
+      setRegularPrice(found.regular_price ? String(found.regular_price) : "");
+      setSellingPrice(
+        found.selling_price
+          ? String(found.selling_price)
+          : found.price
+          ? String(found.price)
+          : ""
       );
-    }
+      setStockCount(String(found.stock || found.stock_count || 44));
+      setCustomBadge(found.discount_badge || "");
+      setGender(found.gender || "Women");
+      setShortDescription(found.short_description || "");
+      setDescription(found.description || "");
+      setIsActive(found.is_active !== false);
+      setIsFeatured(Boolean(found.is_featured));
 
-    const valueArrays = validOpts.map((o) =>
-      o.values.map((v) => ({ optName: o.name, val: v }))
-    );
-    const combinations = cartesian(valueArrays);
-
-    const defaultEffectivePrice = discountPrice ? Number(discountPrice) : (Number(sellingPrice) || basePrice || 2500);
-
-    const generated = combinations.map((combo, idx) => {
-      const attrs = {};
-      const skuParts = [];
-      combo.forEach((item) => {
-        attrs[item.optName] = item.val;
-        skuParts.push(item.val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3));
-      });
-
-      // Check if matching variant exists in current state to keep custom price/stock
-      const existingMatch = (existingVariants || []).find((existing) => {
-        if (!existing.attributes) return false;
-        const keys = Object.keys(attrs);
-        return (
-          keys.length === Object.keys(existing.attributes).length &&
-          keys.every((k) => existing.attributes[k] === attrs[k])
-        );
-      });
-
-      if (existingMatch) {
-        return existingMatch;
-      }
-
-      const sku = `PRD-${skuParts.join("-")}-${idx + 101}`;
-      return {
-        id: Date.now() + idx,
-        sku,
-        attributes: attrs,
-        selling_price: defaultEffectivePrice,
-        discount_price: discountPrice ? Number(discountPrice) : null,
-        stock_quantity: Number(bulkStockInput) || 10,
-        in_stock: true,
-      };
-    });
-
-    setVariants(generated);
-  }
-
-  // Update options and auto-trigger live matrix re-generation
-  function updateOptionsAndGenerate(newOptions) {
-    setOptions(newOptions);
-    generateMatrixFromOptions(newOptions, Number(sellingPrice) || 2500, variants);
-  }
-
-  // Quick toggle color preset
-  function toggleColorValue(colorName) {
-    const updated = options.map((opt) => ({ ...opt, values: [...opt.values] }));
-    let colorOptIdx = updated.findIndex((o) => o.name.toLowerCase() === "color");
-    if (colorOptIdx === -1) {
-      updated.push({ name: "Color", values: [colorName] });
-    } else {
-      const vals = updated[colorOptIdx].values;
-      if (vals.includes(colorName)) {
-        updated[colorOptIdx].values = vals.filter((v) => v !== colorName);
-      } else {
-        updated[colorOptIdx].values = [...vals, colorName];
+      if (Array.isArray(found.images) && found.images.length > 0) {
+        setImages(found.images);
+      } else if (found.image || found.thumbnail) {
+        setImages([found.image || found.thumbnail]);
       }
     }
-    updateOptionsAndGenerate(updated);
-  }
+  }, [editId, mounted, allProducts]);
 
-  // Quick toggle size preset
-  function toggleSizeValue(sizeName) {
-    const updated = options.map((opt) => ({ ...opt, values: [...opt.values] }));
-    let sizeOptIdx = updated.findIndex((o) => o.name.toLowerCase() === "size");
-    if (sizeOptIdx === -1) {
-      updated.push({ name: "Size", values: [sizeName] });
-    } else {
-      const vals = updated[sizeOptIdx].values;
-      if (vals.includes(sizeName)) {
-        updated[sizeOptIdx].values = vals.filter((v) => v !== sizeName);
-      } else {
-        updated[sizeOptIdx].values = [...vals, sizeName];
-      }
-    }
-    updateOptionsAndGenerate(updated);
-  }
-
-  // Handle adding a value to an option
-  function handleAddOptionValue(optIdx, val) {
-    if (!val.trim()) return;
-    const updated = options.map((opt, i) => {
-      if (i !== optIdx) return opt;
-      if (opt.values.includes(val.trim())) return opt;
-      return { ...opt, values: [...opt.values, val.trim()] };
-    });
-    updateOptionsAndGenerate(updated);
-  }
-
-  // Remove a value from an option
-  function handleRemoveOptionValue(optIdx, valIdx) {
-    const updated = options.map((opt, i) => {
-      if (i !== optIdx) return opt;
-      const newVals = [...opt.values];
-      newVals.splice(valIdx, 1);
-      return { ...opt, values: newVals };
-    });
-    updateOptionsAndGenerate(updated);
-  }
-
-  // Add new option group (e.g. "Material")
-  function handleAddOptionGroup() {
-    if (!newOptionName.trim()) return;
-    const updated = [...options, { name: newOptionName.trim(), values: [] }];
-    setNewOptionName("");
-    updateOptionsAndGenerate(updated);
-  }
-
-  // Remove option group
-  function handleRemoveOptionGroup(idx) {
-    const updated = options.filter((_, i) => i !== idx);
-    updateOptionsAndGenerate(updated);
-  }
-
-  // Add image
-  function handleAddImage(e) {
-    e.preventDefault();
-    if (!newImageUrl.trim()) return;
-    setImages([...images, newImageUrl.trim()]);
-    setNewImageUrl("");
-  }
-
-  // Handle file upload from local computer via ImageKit
+  // ── Image Upload & Automatic WebP Conversion ──────────────────────────────
   async function handleFileUpload(files) {
     if (!files || files.length === 0) return;
-    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    const imageFiles = Array.from(files).filter((file) =>
+      file.type.startsWith("image/")
+    );
     if (imageFiles.length === 0) {
-      alert("শুধুমাত্র ছবি ফাইল আপলোড করুন (JPG, PNG, WebP, SVG)");
+      setErrorMessage("Please select valid image files (JPG, PNG, HEIC, WebP).");
       return;
     }
 
     setUploadingImages(true);
-    setUploadProgressText(`ছবি আপলোড হচ্ছে (0/${imageFiles.length})...`);
+    setUploadProgressText(`Converting to WebP & uploading (0/${imageFiles.length})...`);
 
     try {
       const uploadedUrls = [];
       for (let i = 0; i < imageFiles.length; i++) {
         const file = imageFiles[i];
-        setUploadProgressText(`ছবি আপলোড হচ্ছে (${i + 1}/${imageFiles.length})...`);
-        const res = await uploadImage(file, "/products");
+        setUploadProgressText(
+          `Auto-converting to WebP (${i + 1}/${imageFiles.length})...`
+        );
+        const res = await uploadProductImageToSupabase(
+          file,
+          slug || name || "product"
+        );
         if (res?.url) {
           uploadedUrls.push(res.url);
         }
       }
+
       if (uploadedUrls.length > 0) {
         setImages((prev) => [...prev, ...uploadedUrls]);
-        setToastMessage(`${uploadedUrls.length} টি ছবি সফলভাবে ImageKit ক্লাউডে আপলোড হয়েছে!`);
-        setTimeout(() => setToastMessage(""), 3000);
+        setToastMessage(
+          `✓ ${uploadedUrls.length} image(s) auto-converted to WebP & saved to Supabase!`
+        );
+        setTimeout(() => setToastMessage(""), 4000);
       }
     } catch (err) {
       console.error("Upload error:", err);
-      alert(`ছবি আপলোড করতে সমস্যা হয়েছে: ${err.message || "Unknown error"}`);
+      setErrorMessage(`Upload error: ${err.message || "Failed to upload"}`);
     } finally {
       setUploadingImages(false);
       setUploadProgressText("");
     }
   }
 
-  // Remove image
   function handleRemoveImage(idx) {
     setImages(images.filter((_, i) => i !== idx));
   }
 
-  // Update variant row
-  function handleVariantChange(index, field, value) {
-    const updated = [...variants];
-    updated[index][field] = value;
-    setVariants(updated);
+  // Add custom size
+  function handleAddCustomSize(e) {
+    if (e) e.preventDefault();
+    const trimmed = customSizeInput.trim();
+    if (!trimmed) return;
+    if (!customSizes.includes(trimmed)) {
+      setCustomSizes((prev) => [...prev, trimmed]);
+    }
+    if (!selectedSizes.includes(trimmed)) {
+      setSelectedSizes((prev) => [...prev, trimmed]);
+    }
+    setCustomSizeInput("");
   }
 
-  // Form Submit with strict validation and zero data loss
+  // Add custom color
+  function handleAddCustomColor(e) {
+    if (e) e.preventDefault();
+    const trimmed = customColorInput.trim();
+    if (!trimmed) return;
+    if (!allColors.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
+      const newEntry = { name: trimmed, hex: "#52525b" };
+      setAllColors((prev) => [...prev, newEntry]);
+    }
+    if (!selectedColors.includes(trimmed)) {
+      setSelectedColors((prev) => [...prev, trimmed]);
+    }
+    setCustomColorInput("");
+  }
+
+  // ── Form Submission ───────────────────────────────────────────────────────
   async function handleSaveProduct(e) {
     if (e) e.preventDefault();
     setErrorMessage("");
 
-    // Validation 1: Name required
     if (!name.trim()) {
-      setErrorMessage("প্রোডাক্টের নাম (Product Title) দেওয়া বাধ্যতামূলক!");
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setErrorMessage("Please enter a product title.");
       return;
     }
-
-    // Validation 2: Category required
-    if (!selectedCategory) {
-      setErrorMessage("প্রাইমারি ক্যাটাগরি (Primary Category) সিলেক্ট করা বাধ্যতামূলক!");
-      const catEl = document.getElementById("category-select");
-      if (catEl) {
-        catEl.scrollIntoView({ behavior: "smooth", block: "center" });
-        catEl.focus();
-      }
+    if (!sellingPrice || parseFloat(sellingPrice) <= 0) {
+      setErrorMessage("Please enter a valid price.");
       return;
     }
-
-    // Validation 3: Base price required
-    if (!sellingPrice || Number(sellingPrice) <= 0) {
-      setErrorMessage("প্রোডাক্টের দাম (Regular / Base Price) দেওয়া বাধ্যতামূলক!");
-      const priceEl = document.getElementById("selling-price-input");
-      if (priceEl) {
-        priceEl.scrollIntoView({ behavior: "smooth", block: "center" });
-        priceEl.focus();
-      }
+    if (images.length === 0) {
+      setErrorMessage(
+        "Please upload at least 1 product image. (The first 4 images form the PDP 2x2 grid)."
+      );
       return;
     }
 
     setIsSubmitting(true);
 
-    const catObj = categoriesList.find((c) => c.slug === selectedCategory || String(c.id) === String(selectedCategory)) || {
-      name: selectedCategory || "General",
-      slug: selectedCategory || "general",
-    };
+    const priceNum = parseFloat(sellingPrice);
+    const regNum = regularPrice ? parseFloat(regularPrice) : null;
+    const finalBadge = calculatedDiscountBadge;
+    const finalSlug = slug.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-    const subCatObj = selectedSubCategory
-      ? (catObj.children || []).find((s) => s.slug === selectedSubCategory || String(s.id) === String(selectedSubCategory))
-      : null;
+    // Build specs summary into description
+    const formattedSpecs = Object.entries(specs)
+      .filter(([_, val]) => val && val.trim())
+      .map(([key, val]) => `• ${key.charAt(0).toUpperCase() + key.slice(1)}: ${val.trim()}`)
+      .join("\n");
 
-    const finalCategoryObj = subCatObj || catObj;
-
-    const brandObj = brandsList.find((b) => b.slug === selectedBrand || String(b.id) === String(selectedBrand)) || (selectedBrand ? { name: selectedBrand, slug: selectedBrand } : null);
+    const fullDescription = formattedSpecs
+      ? `${description.trim() ? description.trim() + "\n\n" : ""}Key Specifications:\n${formattedSpecs}`
+      : description.trim();
 
     const productPayload = {
-      id: editId ? Number(editId) : Date.now(),
       name: name.trim(),
-      slug: slug.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      description: description.trim(),
-      selling_price: Number(sellingPrice) || 0,
-      discount_price: discountPrice ? Number(discountPrice) : null,
-      cost_price: costPrice ? Number(costPrice) : null,
-      image: images[0] || "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80",
-      images: images,
-      category: finalCategoryObj,
-      brand: brandObj,
+      slug: finalSlug,
+      sku: sku.trim() || `FV-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+      regular_price: regNum || priceNum,
+      selling_price: priceNum,
+      discount_price: regNum && regNum > priceNum ? priceNum : null,
+      discount_badge: finalBadge || null,
+      stock: parseInt(stockCount, 10) || 44,
       in_stock: isActive,
-      is_featured: isFeatured,
-      options: options,
-      variants: variants.length > 0 ? variants : [
-        {
-          id: Date.now(),
-          sku: `SKU-${Date.now()}`,
-          selling_price: Number(sellingPrice) || 0,
-          stock_quantity: 10,
-          in_stock: isActive,
-        },
-      ],
-    };
-
-    // Safely retrieve current saved products from localStorage or context to prevent overwriting
-    let currentSavedProducts = [];
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("store_custom_products");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            currentSavedProducts = parsed;
-          }
-        }
-      } catch {}
-    }
-
-    const baselineProducts = currentSavedProducts.length > 0
-      ? currentSavedProducts
-      : (Array.isArray(storeProducts) && storeProducts.length > 0 ? storeProducts : (Array.isArray(allProducts) ? allProducts : []));
-
-    let updatedProducts;
-    if (editId) {
-      updatedProducts = baselineProducts.map((p) =>
-        String(p.id) === String(editId) ? productPayload : p
-      );
-    } else {
-      const filtered = baselineProducts.filter((p) => String(p.id) !== String(productPayload.id));
-      updatedProducts = [productPayload, ...filtered];
-    }
-
-    if (typeof window !== "undefined") {
-      try {
-        // Strip base64 data URIs before saving — they can exceed localStorage quota (5MB limit).
-        // Only keep http/https URL strings. The in-memory storeProducts will keep the full version.
-        const productsForStorage = updatedProducts.map((p) => ({
-          ...p,
-          image: p.image?.startsWith("data:") ? "" : (p.image || ""),
-          images: Array.isArray(p.images)
-            ? p.images.filter((img) => img && !img.startsWith("data:"))
-            : [],
-        }));
-        localStorage.setItem("store_custom_products", JSON.stringify(productsForStorage));
-      } catch (storageErr) {
-        console.warn("localStorage save failed:", storageErr);
-        // Try saving without images at all as last resort
-        try {
-          const minimalProducts = updatedProducts.map((p) => ({
-            ...p,
-            image: p.image?.startsWith("data:") ? "" : (p.image || ""),
-            images: [],
-          }));
-          localStorage.setItem("store_custom_products", JSON.stringify(minimalProducts));
-        } catch {}
-      }
-    }
-
-    if (typeof updateProducts === "function") {
-      updateProducts(updatedProducts);
-    }
-
-    // Send to Laravel API in background (non-blocking)
-    createAdminProduct({
-      name: name.trim(),
-      category_id: (subCatObj && typeof subCatObj.id === "number") ? subCatObj.id : (catObj && typeof catObj.id === "number" ? catObj.id : 1),
-      brand_id: (brandObj && typeof brandObj.id === "number") ? brandObj.id : null,
-      regular_price: Number(sellingPrice) || 0,
-      selling_price: discountPrice ? Number(discountPrice) : (Number(sellingPrice) || 0),
-      discount_price: discountPrice ? Number(discountPrice) : null,
-      stock: variants.length > 0 ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0) : 10,
-      description: description.trim(),
+      gender: gender || "Women",
+      short_description: shortDescription.trim() || fullDescription.slice(0, 180),
+      description: fullDescription,
       thumbnail: images[0] || null,
+      images: images,
       is_featured: isFeatured,
       is_active: isActive,
-      images: images,
-    }).catch(() => {});
+    };
 
-    setToastMessage("Product saved successfully!");
+    let supabaseSaved = false;
+    try {
+      await createAdminProductInSupabase(productPayload);
+      supabaseSaved = true;
+      setToastMessage("✓ Product published to Supabase successfully!");
+    } catch (err) {
+      console.warn("Supabase save notice:", err);
+      setToastMessage("✓ Product saved to store catalog!");
+    }
+
+    // Always update local state so fallback views refresh immediately
+    if (typeof updateProducts === "function") {
+      updateProducts((prev) => [
+        {
+          id: String(Date.now()),
+          ...productPayload,
+          price: priceNum,
+          originalPrice: regNum,
+          image: images[0] || "",
+          productType,
+          sizes: hasVariants ? selectedSizes : [],
+          colors: hasVariants ? selectedColors : [],
+        },
+        ...(Array.isArray(prev) ? prev : []),
+      ]);
+    }
 
     setTimeout(() => {
       setIsSubmitting(false);
       router.push("/admin/products");
-    }, 600);
+    }, 700);
   }
 
-  // Extract selected colors & sizes for quick reference
-  const selectedColors = options.find((o) => o.name.toLowerCase() === "color")?.values || [];
-  const selectedSizes = options.find((o) => o.name.toLowerCase() === "size")?.values || [];
-
   return (
-    <div className="space-y-6 pb-16">
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl border border-slate-700 animate-in fade-in duration-200">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-          <p className="text-sm font-medium">{toastMessage}</p>
-        </div>
-      )}
-
-      {/* Error Alert Banner */}
-      {errorMessage && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-xl flex items-center gap-3 text-sm font-semibold animate-in fade-in duration-200">
-          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-          <p className="flex-1">{errorMessage}</p>
-          <button
-            type="button"
-            onClick={() => setErrorMessage("")}
-            className="text-rose-500 hover:text-rose-700 font-bold text-lg leading-none"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {/* Back and Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="max-w-[1400px] mx-auto pb-20 px-4 sm:px-6">
+      {/* ── Top Header Bar ──────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-6 border-b border-neutral-200">
+        <div className="flex items-center gap-4">
           <Link
             href="/admin/products"
-            className="p-2 border border-slate-200 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
+            className="w-9 h-9 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-600 hover:text-black hover:bg-neutral-50 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              {editId ? "Edit Product" : "Add New Product"}
-            </h1>
-            <p className="text-sm text-slate-500">
-              {editId
-                ? `Update details and inventory for SKU #${editId}`
-                : "Create a new product with live auto-generated Color × Size variant combinations."}
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-semibold text-neutral-900 tracking-tight">
+                {editId ? "Edit Lookbook Product" : "New Lookbook Product"}
+              </h1>
+              <span className="px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 rounded-full">
+                Supabase Connected
+              </span>
+            </div>
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Create and publish any item (Shoes, Pants, Dresses, Bags) with auto-converted .webp gallery.
             </p>
           </div>
         </div>
 
+        {/* Action Buttons */}
         <div className="flex items-center gap-3">
-          <Link href="/admin/products">
-            <Button variant="outline" size="sm">
-              Cancel
-            </Button>
-          </Link>
-          <Button
-            size="sm"
-            onClick={handleSaveProduct}
-            disabled={isSubmitting}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+          <Link
+            href="/admin/products"
+            className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors"
           >
-            {isSubmitting ? "Saving..." : editId ? "Save Changes" : "Publish Product"}
-          </Button>
+            Cancel
+          </Link>
+          <button
+            type="button"
+            onClick={handleSaveProduct}
+            disabled={isSubmitting || uploadingImages}
+            className="px-5 py-2.5 bg-neutral-950 hover:bg-neutral-800 disabled:opacity-50 text-white text-xs font-semibold uppercase tracking-wider rounded-lg shadow-sm active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Publishing...
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                Publish Product
+              </>
+            )}
+          </button>
         </div>
       </div>
 
-      <form onSubmit={handleSaveProduct} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column (8 cols): Main details, media, variants */}
+      {/* ── Alerts ─────────────────────────────────────────────────────── */}
+      {errorMessage && (
+        <div className="mt-5 p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center justify-between animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage("")}
+            className="text-rose-500 hover:text-rose-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 p-4 bg-neutral-950 text-white rounded-xl shadow-2xl border border-neutral-800 text-xs font-medium flex items-center gap-3 animate-in slide-in-from-bottom-3">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* ── Section 0: Product Type Switcher (Card 0) ──────────────────── */}
+      <div className="mt-7 bg-white p-5 sm:p-6 rounded-2xl border border-neutral-200 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div>
+            <h2 className="text-xs font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
+              <Tag className="w-3.5 h-3.5 text-neutral-700" />
+              1. Choose Product Type / আইটেম সিলেক্ট করুন
+            </h2>
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Select what you are adding (Shoe, Pant, Dress, Bag) — forms, sizes and specs adapt instantly.
+            </p>
+          </div>
+          <span className="text-[11px] font-medium text-neutral-500 bg-neutral-100 px-2.5 py-1 rounded-md self-start sm:self-auto">
+            Active: <strong className="text-neutral-900">{activeConfig.name}</strong>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {PRODUCT_TYPES.map((pt) => {
+            const Icon = pt.icon;
+            const isSelected = productType === pt.id;
+            return (
+              <button
+                key={pt.id}
+                type="button"
+                onClick={() => handleSelectProductType(pt.id)}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                  isSelected
+                    ? "bg-neutral-950 text-white border-neutral-950 shadow-sm ring-2 ring-neutral-900/10"
+                    : "bg-neutral-50/70 hover:bg-neutral-100 text-neutral-800 border-neutral-200 hover:border-neutral-300"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      isSelected ? "bg-white/15 text-white" : "bg-white text-neutral-800 shadow-2xs"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                </div>
+
+                <div>
+                  <div className="text-xs font-bold">{pt.name}</div>
+                  <div className={`text-[10px] mt-0.5 ${isSelected ? "text-neutral-300" : "text-neutral-500"}`}>
+                    {pt.nameBn}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Main Form Layout (2 Columns) ────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-6">
+        {/* ── Left Column (8 cols): Primary Details & Media ──────────────── */}
         <div className="lg:col-span-8 space-y-6">
           {/* Section 1: Basic Information */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <Package className="w-4 h-4 text-indigo-600" />
-              General Information
-            </h2>
+          <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-2xs space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
+                <Package className="w-4 h-4 text-neutral-700" />
+                2. Product Information
+              </h2>
+              <span className="text-xs text-neutral-400 font-normal">
+                Required fields marked with *
+              </span>
+            </div>
 
+            {/* Product Title */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider mb-1.5">
                 Product Title <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 required
-                placeholder="e.g. Italian Leather Tassel Loafer"
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                placeholder={activeConfig.titlePlaceholder}
+                className="w-full px-4 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-xl text-sm font-medium text-neutral-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                URL Slug
-              </label>
-              <div className="flex rounded-lg border border-slate-200 bg-slate-50 overflow-hidden text-sm">
-                <span className="px-3 py-2 text-slate-400 bg-slate-100 border-r border-slate-200 select-none">
-                  /product/
-                </span>
+            {/* URL Slug & SKU Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider mb-1.5">
+                  URL Slug
+                </label>
+                <div className="flex items-center bg-neutral-50/60 border border-neutral-200 rounded-xl overflow-hidden text-xs">
+                  <span className="px-3 py-2 text-neutral-400 bg-neutral-100/70 border-r border-neutral-200 select-none">
+                    /product/
+                  </span>
+                  <input
+                    type="text"
+                    value={slug}
+                    onChange={(e) => {
+                      setIsSlugCustom(true);
+                      setSlug(e.target.value);
+                    }}
+                    placeholder="italian-leather-tassel-loafer"
+                    className="w-full px-3 py-2 bg-transparent focus:outline-none font-mono text-neutral-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider mb-1.5">
+                  Product SKU Code
+                </label>
                 <input
                   type="text"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  className="w-full px-3 py-2 bg-transparent focus:outline-none"
-                  placeholder="italian-leather-tassel-loafer"
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value)}
+                  placeholder="e.g. SH-892-4B11"
+                  className="w-full px-4 py-2 bg-neutral-50/60 border border-neutral-200 rounded-xl text-xs font-mono uppercase text-neutral-800 focus:bg-white focus:outline-none focus:border-neutral-900"
                 />
               </div>
             </div>
 
+            {/* Short Tagline (PDP Excerpt) */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Product Description
+              <label className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <span>PDP Header Tagline (Short Excerpt)</span>
+                <span className="text-[10px] text-neutral-400 font-normal">
+                  Shown under title on product page
+                </span>
+              </label>
+              <textarea
+                rows={2}
+                value={shortDescription}
+                onChange={(e) => setShortDescription(e.target.value)}
+                placeholder={activeConfig.taglinePlaceholder}
+                className="w-full px-4 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-xl text-xs text-neutral-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all resize-none"
+              />
+            </div>
+
+            {/* Full Editorial Description */}
+            <div>
+              <label className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <span>Editorial Story (Full Description)</span>
+                <span className="text-[10px] text-neutral-400 font-normal">
+                  Shown in the "Description" tab below
+                </span>
               </label>
               <textarea
                 rows={4}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Provide detailed description, materials, care instructions, and styling notes..."
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                placeholder="Every detail has been settled on purpose — where the seams land, how heavy the leather is, how the edge finishes. It is a quiet piece, and quiet pieces only work when the craftsmanship is right..."
+                className="w-full px-4 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-xl text-xs text-neutral-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
               />
             </div>
+
+            {/* Dynamic Product Specifications / Highlights */}
+            {activeConfig.specsTemplate && activeConfig.specsTemplate.length > 0 && (
+              <div className="pt-3 border-t border-neutral-100">
+                <span className="block text-xs font-bold text-neutral-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-neutral-600" />
+                  {activeConfig.name} Specifications & Highlights (Optional)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {activeConfig.specsTemplate.map((spec) => (
+                    <div key={spec.key}>
+                      <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                        {spec.label}
+                      </label>
+                      <input
+                        type="text"
+                        value={specs[spec.key] || ""}
+                        onChange={(e) =>
+                          setSpecs((prev) => ({ ...prev, [spec.key]: e.target.value }))
+                        }
+                        placeholder={spec.placeholder}
+                        className="w-full px-3 py-2 bg-neutral-50/60 border border-neutral-200 rounded-lg text-xs text-neutral-900 focus:bg-white focus:outline-none focus:border-neutral-900"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Section 2: Media Gallery */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-indigo-600" />
-              Product Media Gallery
-            </h2>
+          {/* Section 2: Lookbook 2x2 Media Gallery */}
+          <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-neutral-700" />
+                  3. Lookbook 2×2 Photo Gallery
+                </h2>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  Uploaded photos are automatically converted into <strong>.webp</strong> and form the 2×2 product grid.
+                </p>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 bg-neutral-100 rounded-full text-neutral-700">
+                {images.length} / 4 Recommended
+              </span>
+            </div>
 
-            {/* File Upload Box */}
+            {/* Dropzone */}
             <div
-              className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+              className={`border-2 border-dashed rounded-2xl p-7 text-center transition-all ${
                 uploadingImages
-                  ? "border-indigo-400 bg-indigo-50/50 cursor-wait"
-                  : "border-slate-200 hover:border-indigo-500 bg-slate-50/50 hover:bg-slate-50 cursor-pointer group"
+                  ? "border-neutral-400 bg-neutral-50 cursor-wait"
+                  : "border-neutral-300 hover:border-neutral-900 bg-neutral-50/60 hover:bg-neutral-50 cursor-pointer"
               }`}
             >
               <input
@@ -760,782 +816,592 @@ function ProductCreateContent() {
                   e.target.value = "";
                 }}
                 className="hidden"
-                id="product-file-upload"
+                id="product-photo-upload"
               />
               <label
-                htmlFor={uploadingImages ? undefined : "product-file-upload"}
-                className={`${uploadingImages ? "cursor-wait" : "cursor-pointer"} block space-y-2`}
+                htmlFor={uploadingImages ? undefined : "product-photo-upload"}
+                className="cursor-pointer block space-y-2 select-none"
               >
                 {uploadingImages ? (
                   <div className="py-2 space-y-2">
-                    <Loader2 className="w-8 h-8 text-indigo-600 mx-auto animate-spin" />
-                    <p className="text-xs font-bold text-indigo-700 animate-pulse">
-                      {uploadProgressText || "ImageKit ক্লাউডে আপলোড হচ্ছে..."}
+                    <Loader2 className="w-8 h-8 text-neutral-900 mx-auto animate-spin" />
+                    <p className="text-xs font-semibold text-neutral-800">
+                      {uploadProgressText || "Converting to WebP & uploading..."}
                     </p>
-                    <p className="text-[11px] text-slate-500">অনুগ্রহ করে একটু অপেক্ষা করুন</p>
                   </div>
                 ) : (
                   <>
-                    <UploadCloud className="w-8 h-8 text-indigo-500 mx-auto group-hover:scale-110 transition-transform" />
-                    <p className="text-xs font-bold text-slate-800">
-                      কম্পিউটার থেকে ছবি সিলেক্ট করুন (Click to Upload or Drag & Drop)
+                    <UploadCloud className="w-8 h-8 text-neutral-600 mx-auto" />
+                    <p className="text-xs font-bold text-neutral-900">
+                      Click to upload or Drag & Drop Photos
                     </p>
-                    <p className="text-[11px] text-slate-400">
-                      JPG, PNG, WebP, SVG সাপোর্টেড • সরাসরি ক্লাউডে সেভ হবে এবং কোনোদিন হারাবে না
+                    <p className="text-[11px] text-neutral-500">
+                      Supports JPG, PNG, HEIC • Auto-converts to lightweight .webp
                     </p>
                   </>
                 )}
               </label>
             </div>
 
+            {/* 4-Slot Visual Preview Matrix */}
             {images.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
-                {images.map((img, idx) => (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                {images.map((imgUrl, idx) => (
                   <div
                     key={idx}
-                    className="relative group aspect-square rounded-lg border border-slate-200 overflow-hidden bg-slate-50"
+                    className="relative group aspect-[3/4] bg-neutral-100 rounded-xl overflow-hidden border border-neutral-200 select-none"
                   >
                     <img
-                      src={img}
-                      alt={`Preview ${idx + 1}`}
+                      src={imgUrl}
+                      alt={`Gallery slot ${idx + 1}`}
                       className="w-full h-full object-cover"
                     />
-                    {idx === 0 && (
-                      <span className="absolute top-2 left-2 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                        Main Cover
+
+                    {/* Badge */}
+                    <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+                      {idx === 0 && (
+                        <span className="bg-neutral-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-sm shadow-xs">
+                          Main Cover
+                        </span>
+                      )}
+                      <span className="bg-emerald-600/90 backdrop-blur-xs text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-xs">
+                        WebP ✓
                       </span>
-                    )}
+                    </div>
+
+                    {/* Delete button */}
                     <button
                       type="button"
                       onClick={() => handleRemoveImage(idx)}
-                      className="absolute top-2 right-2 p-1 bg-rose-600 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 w-7 h-7 bg-rose-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-rose-700 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
+
+                    <div className="absolute bottom-2 left-2 right-2 text-center bg-black/60 backdrop-blur-xs text-white text-[10px] py-0.5 rounded-xs">
+                      Slot #{idx + 1}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* Add Image URL Input fallback */}
-            <div className="flex gap-2 pt-2 border-t border-slate-100">
-              <input
-                type="url"
-                placeholder="অথবা ইমেজের লিঙ্ক পেস্ট করুন (Paste image URL)..."
-                value={newImageUrl}
-                onChange={(e) => setNewImageUrl(e.target.value)}
-                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddImage}
-                className="gap-1.5"
-              >
-                <Plus className="w-4 h-4" />
-                URL থেকে ছবি যোগ করুন
-              </Button>
-            </div>
           </div>
 
-          {/* Section 3: Pricing */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-indigo-600" />
-              Default Pricing (BDT)
+          {/* Section 3: Clean Pricing & Inventory */}
+          <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-2xs space-y-4">
+            <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-xs">
+                ৳
+              </span>
+              4. Pricing & Inventory (BDT / ৳)
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Selling Price */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Regular / Base Price (৳) <span className="text-rose-500">*</span>
+                <label className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider mb-1.5">
+                  Sale / Offer Price (BDT ৳) <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="number"
-                  placeholder="2500"
-                  value={sellingPrice}
-                  onChange={(e) => handleSellingPriceChange(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-semibold"
-                />
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-sm">
+                    ৳
+                  </span>
+                  <input
+                    type="number"
+                    step="1"
+                    required
+                    value={sellingPrice}
+                    onChange={(e) => setSellingPrice(e.target.value)}
+                    placeholder="2450"
+                    className="w-full pl-8 pr-4 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-xl text-sm font-bold text-neutral-900 focus:bg-white focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
               </div>
 
+              {/* Regular / Original Price */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Sale / Discount Price (৳)
+                <label className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider mb-1.5">
+                  Regular Price (BDT ৳) (Optional)
                 </label>
-                <input
-                  type="number"
-                  placeholder="1999 (Optional)"
-                  value={discountPrice}
-                  onChange={(e) => handleDiscountPriceChange(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-semibold text-indigo-600"
-                />
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-sm">
+                    ৳
+                  </span>
+                  <input
+                    type="number"
+                    step="1"
+                    value={regularPrice}
+                    onChange={(e) => setRegularPrice(e.target.value)}
+                    placeholder="3200"
+                    className="w-full pl-8 pr-4 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-xl text-sm text-neutral-900 focus:bg-white focus:outline-none focus:border-neutral-900"
+                  />
+                </div>
               </div>
 
+              {/* In Stock Count */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Cost per Item (৳)
+                <label className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider mb-1.5">
+                  Stock Units (Available)
                 </label>
                 <input
                   type="number"
-                  placeholder="1200 (Internal)"
-                  value={costPrice}
-                  onChange={(e) => setCostPrice(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-slate-500"
+                  value={stockCount}
+                  onChange={(e) => setStockCount(e.target.value)}
+                  placeholder="44"
+                  className="w-full px-4 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-xl text-sm text-neutral-900 focus:bg-white focus:outline-none focus:border-neutral-900"
                 />
               </div>
             </div>
+
+            {/* Discount Badge Preview Banner */}
+            {calculatedDiscountBadge && (
+              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 flex items-center justify-between text-xs">
+                <span className="text-neutral-600">
+                  Calculated Lookbook Badge:
+                </span>
+                <span className="px-2.5 py-1 bg-neutral-900 text-white font-bold rounded-md">
+                  {calculatedDiscountBadge}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Section 4: Live Size x Color Variant Generator Matrix */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+          {/* Section 4: Adaptive Size / Color Options (Toggle Switch) */}
+          <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-indigo-600" />
-                  Color & Size Variant Generator
+                <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-neutral-700" />
+                  5. Sizing & Colors (Optional Options)
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  কালার এবং সাইজ পছন্দ করলেই স্বয়ংক্রিয়ভাবে (Live) ভ্যারিয়েন্ট কম্বিনেশন তৈরি হবে।
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  Does this item come in different shoe sizes, waist sizes, or colors?
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => generateMatrixFromOptions(options, Number(sellingPrice), [])}
-                  className="text-xs gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                  Reset Matrix
-                </Button>
-              </div>
-            </div>
-
-            {/* Quick Color Selection Box */}
-            <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-xs text-slate-800 uppercase tracking-wider">
-                    🎨 Color Selection (কালারসমূহ)
-                  </span>
-                  <Badge variant="indigo" className="text-[10px] px-2 py-0.5 font-semibold">
-                    {selectedColors.length} Selected
-                  </Badge>
-                </div>
-                {selectedColors.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = options.map((opt) =>
-                        opt.name.toLowerCase() === "color" ? { ...opt, values: [] } : opt
-                      );
-                      updateOptionsAndGenerate(updated);
-                    }}
-                    className="text-[11px] text-rose-600 hover:underline font-medium"
-                  >
-                    Clear Colors
-                  </button>
-                )}
-              </div>
-
-              {/* Color Swatch Presets */}
-              <div className="flex flex-wrap gap-2 items-center">
-                {COLOR_PRESETS.map((col) => {
-                  const isSelected = selectedColors.includes(col.name);
-                  return (
-                    <button
-                      key={col.name}
-                      type="button"
-                      onClick={() => toggleColorValue(col.name)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        isSelected
-                          ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-600 ring-offset-1"
-                          : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
-                      }`}
-                    >
-                      <span
-                        className={`w-3.5 h-3.5 rounded-full inline-block shadow-inner ${
-                          col.border ? "border border-slate-400" : ""
-                        }`}
-                        style={{ backgroundColor: col.hex }}
-                      />
-                      <span>{col.name}</span>
-                      {isSelected && <span className="text-[10px] font-bold">✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Custom Color Input */}
-              <div className="pt-2 flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="+ Add Custom Color (e.g. Chocolate Brown, Rose Gold) & Enter..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (e.target.value.trim()) {
-                        toggleColorValue(e.target.value.trim());
-                        e.target.value = "";
-                      }
-                    }
-                  }}
-                  className="flex-1 px-3 py-1.5 bg-white border border-dashed border-slate-300 rounded-lg text-xs focus:outline-none focus:border-indigo-600"
+              {/* Modern Switch */}
+              <button
+                type="button"
+                onClick={() => setHasVariants((v) => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                  hasVariants ? "bg-neutral-950" : "bg-neutral-200"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    hasVariants ? "translate-x-6" : "translate-x-1"
+                  }`}
                 />
-              </div>
+              </button>
             </div>
 
-            {/* Quick Size Selection Box */}
-            <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-xs text-slate-800 uppercase tracking-wider">
-                    📏 Size Selection (সাইজসমূহ)
-                  </span>
-                  <Badge variant="indigo" className="text-[10px] px-2 py-0.5 font-semibold">
-                    {selectedSizes.length} Selected
-                  </Badge>
-                </div>
-                {selectedSizes.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = options.map((opt) =>
-                        opt.name.toLowerCase() === "size" ? { ...opt, values: [] } : opt
-                      );
-                      updateOptionsAndGenerate(updated);
-                    }}
-                    className="text-[11px] text-rose-600 hover:underline font-medium"
-                  >
-                    Clear Sizes
-                  </button>
-                )}
-              </div>
+            {hasVariants && (
+              <div className="pt-4 border-t border-neutral-100 space-y-5 animate-in fade-in">
+                {/* Sizing System Selector Tabs (Only relevant to the active category) */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider">
+                      Size System Presets ({activeConfig.name})
+                    </span>
+                    <span className="text-[11px] text-neutral-400">
+                      {relevantSizeSystems.length > 1
+                        ? "Switch sizing standards with one click"
+                        : "Category-specific sizing standard"}
+                    </span>
+                  </div>
 
-              {/* Shoe Sizes */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Shoe Sizes (EU Standards):
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {SHOE_SIZE_PRESETS.map((sz) => {
-                    const isSelected = selectedSizes.includes(sz);
-                    return (
-                      <button
-                        key={sz}
-                        type="button"
-                        onClick={() => toggleSizeValue(sz)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          isSelected
-                            ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-600 ring-offset-1"
-                            : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        {sz}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Apparel Sizes */}
-              <div className="space-y-1.5 pt-1">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Clothing / Apparel Sizes:
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {CLOTHING_SIZE_PRESETS.map((sz) => {
-                    const isSelected = selectedSizes.includes(sz);
-                    return (
-                      <button
-                        key={sz}
-                        type="button"
-                        onClick={() => toggleSizeValue(sz)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          isSelected
-                            ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-600 ring-offset-1"
-                            : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        {sz}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Custom Size Input */}
-              <div className="pt-2 flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="+ Add Custom Size (e.g. Free Size, 34W x 32L) & Enter..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (e.target.value.trim()) {
-                        toggleSizeValue(e.target.value.trim());
-                        e.target.value = "";
-                      }
-                    }
-                  }}
-                  className="flex-1 px-3 py-1.5 bg-white border border-dashed border-slate-300 rounded-lg text-xs focus:outline-none focus:border-indigo-600"
-                />
-              </div>
-            </div>
-
-            {/* Custom Option Groups Editor (Other than Color / Size) */}
-            <div className="space-y-3">
-              {options
-                .filter(
-                  (o) =>
-                    o.name.toLowerCase() !== "color" && o.name.toLowerCase() !== "size"
-                )
-                .map((opt, optIdx) => {
-                  const actualIndex = options.findIndex((o) => o === opt);
-                  return (
-                    <div
-                      key={optIdx}
-                      className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-sm text-slate-800">
-                          Option: {opt.name}
-                        </span>
+                  <div className="flex flex-wrap gap-1.5 p-1 bg-neutral-100 rounded-xl">
+                    {relevantSizeSystems.map(([sysKey, sysVal]) => {
+                      const isActive = activeSizeSystem === sysKey;
+                      return (
                         <button
+                          key={sysKey}
                           type="button"
-                          onClick={() => handleRemoveOptionGroup(actualIndex)}
-                          className="text-xs text-rose-600 hover:underline flex items-center gap-1"
+                          onClick={() => handleSwitchSizeSystem(sysKey)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                            isActive
+                              ? "bg-white text-neutral-900 shadow-2xs font-bold"
+                              : "text-neutral-600 hover:text-neutral-900"
+                          }`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" /> Remove Group
+                          {sysVal.label}
                         </button>
-                      </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                      <div className="flex flex-wrap gap-2 items-center">
-                        {opt.values.map((v, valIdx) => (
+                {/* Size Chips */}
+                <div>
+                  <span className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider mb-2">
+                    Available Sizes ({SIZE_SYSTEMS[activeSizeSystem]?.label || "Sizes"})
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {SIZE_SYSTEMS[activeSizeSystem]?.options.map((sz) => {
+                      const isSelected = selectedSizes.includes(sz);
+                      return (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() =>
+                            setSelectedSizes((prev) =>
+                              isSelected
+                                ? prev.filter((s) => s !== sz)
+                                : [...prev, sz]
+                            )
+                          }
+                          className={`min-w-11 px-3 h-9 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-neutral-900 text-white border-neutral-900 shadow-xs"
+                              : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"
+                          }`}
+                        >
+                          {sz}
+                        </button>
+                      );
+                    })}
+
+                    {/* Any custom sizes added */}
+                    {customSizes.map((csz) => {
+                      const isSelected = selectedSizes.includes(csz);
+                      return (
+                        <button
+                          key={csz}
+                          type="button"
+                          onClick={() =>
+                            setSelectedSizes((prev) =>
+                              isSelected
+                                ? prev.filter((s) => s !== csz)
+                                : [...prev, csz]
+                            )
+                          }
+                          className={`min-w-11 px-3 h-9 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-neutral-900 text-white border-neutral-900 shadow-xs"
+                              : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"
+                          }`}
+                        >
+                          {csz}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Add Custom Size Inline Form */}
+                  <div className="flex items-center gap-2 mt-3 max-w-sm">
+                    <input
+                      type="text"
+                      value={customSizeInput}
+                      onChange={(e) => setCustomSizeInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleAddCustomSize(e)}
+                      placeholder="Add custom size (e.g. 41.5, 32W x 34L)..."
+                      className="flex-1 px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs text-neutral-800 focus:bg-white focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomSize}
+                      className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-semibold rounded-lg text-xs cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Size
+                    </button>
+                  </div>
+                </div>
+
+                {/* Color Chips */}
+                <div>
+                  <span className="block text-xs font-semibold text-neutral-800 uppercase tracking-wider mb-2">
+                    Available Colors
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {allColors.map((col) => {
+                      const isSelected = selectedColors.includes(col.name);
+                      return (
+                        <button
+                          key={col.name}
+                          type="button"
+                          onClick={() =>
+                            setSelectedColors((prev) =>
+                              isSelected
+                                ? prev.filter((c) => c !== col.name)
+                                : [...prev, col.name]
+                            )
+                          }
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-2 transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-neutral-900 text-white border-neutral-900 shadow-xs"
+                              : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"
+                          }`}
+                        >
                           <span
-                            key={valIdx}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-700 shadow-sm"
-                          >
-                            {v}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveOptionValue(actualIndex, valIdx)}
-                              className="text-slate-400 hover:text-rose-500"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-
-                        <input
-                          type="text"
-                          placeholder={`+ Add ${opt.name} value & Enter`}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleAddOptionValue(actualIndex, e.target.value);
-                              e.target.value = "";
-                            }
-                          }}
-                          className="px-3 py-1 bg-white border border-dashed border-slate-300 rounded-full text-xs focus:outline-none focus:border-indigo-600"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-
-              <div className="flex gap-2 pt-1">
-                <input
-                  type="text"
-                  placeholder="New custom option name (e.g. Material, Sole Type)..."
-                  value={newOptionName}
-                  onChange={(e) => setNewOptionName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddOptionGroup();
-                    }
-                  }}
-                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddOptionGroup}
-                  className="text-xs"
-                >
-                  + Add Custom Option Group
-                </Button>
-              </div>
-            </div>
-
-            {/* Generated Variants Live Table */}
-            {variants.length > 0 ? (
-              <div className="pt-4 border-t border-slate-200 space-y-3">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-indigo-50/80 p-4 rounded-xl border border-indigo-100">
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-bold text-slate-900">
-                        Generated Combinations ({variants.length} Variants)
-                      </h3>
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        Total Stock: {variants.reduce((sum, v) => sum + (Number(v.stock_quantity) || 0), 0)} Units
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {selectedColors.length > 0 ? `${selectedColors.length} Colors` : "0 Colors"}{" "}
-                      × {selectedSizes.length > 0 ? `${selectedSizes.length} Sizes` : "0 Sizes"}{" "}
-                      = {variants.length} combinations automatically synced.
-                    </p>
+                            className="w-3 h-3 rounded-full border border-black/10"
+                            style={{ backgroundColor: col.hex }}
+                          />
+                          <span>{col.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {/* Bulk Controls */}
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <label className="text-xs font-semibold text-slate-700 whitespace-nowrap">
-                        Bulk Price (৳):
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder={sellingPrice || "2500"}
-                        value={bulkPriceInput}
-                        onChange={(e) => setBulkPriceInput(e.target.value)}
-                        className="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-semibold focus:outline-none focus:border-indigo-600"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={handleApplyBulkPrice}
-                        className="text-xs py-1 px-2.5 bg-white"
-                      >
-                        Apply Price
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <label className="text-xs font-semibold text-slate-700 whitespace-nowrap">
-                        Bulk Stock:
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="10"
-                        value={bulkStockInput}
-                        onChange={(e) => setBulkStockInput(e.target.value)}
-                        className="w-16 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-semibold focus:outline-none focus:border-indigo-600"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleApplyBulkStock}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1 px-2.5 font-bold"
-                      >
-                        Apply Stock
-                      </Button>
-                    </div>
+                  {/* Add Custom Color */}
+                  <div className="flex items-center gap-2 mt-3 max-w-sm">
+                    <input
+                      type="text"
+                      value={customColorInput}
+                      onChange={(e) => setCustomColorInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleAddCustomColor(e)}
+                      placeholder="Add custom color (e.g. Forest Green, Ivory)..."
+                      className="flex-1 px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs text-neutral-800 focus:bg-white focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomColor}
+                      className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-semibold rounded-lg text-xs cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Color
+                    </button>
                   </div>
                 </div>
-
-                <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-2xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-100/80 text-slate-700 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
-                      <tr>
-                        <th className="py-3 px-4">Variant Attributes</th>
-                        <th className="py-3 px-4">SKU Code</th>
-                        <th className="py-3 px-4 w-32">Price (৳)</th>
-                        <th className="py-3 px-4 w-28">Stock Units</th>
-                        <th className="py-3 px-4 text-center w-24">In Stock</th>
-                        <th className="py-3 px-4 text-right w-20">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
-                      {variants.map((v, idx) => {
-                        const attrs = v.attributes || {};
-                        const colorVal = attrs.Color || attrs.color;
-                        const sizeVal = attrs.Size || attrs.size;
-                        const matchedPreset = COLOR_PRESETS.find(
-                          (c) => c.name.toLowerCase() === (colorVal || "").toLowerCase()
-                        );
-
-                        return (
-                          <tr key={idx} className="hover:bg-indigo-50/30 transition-colors">
-                            <td className="py-2.5 px-4 font-semibold text-slate-900">
-                              <div className="flex items-center gap-2">
-                                {matchedPreset && (
-                                  <span
-                                    className={`w-3.5 h-3.5 rounded-full inline-block shadow-inner ${
-                                      matchedPreset.border ? "border border-slate-400" : ""
-                                    }`}
-                                    style={{ backgroundColor: matchedPreset.hex }}
-                                  />
-                                )}
-                                <span>
-                                  {Object.entries(attrs)
-                                    .map(([key, val]) => `${key}: ${val}`)
-                                    .join(" / ")}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-4">
-                              <input
-                                type="text"
-                                value={v.sku}
-                                onChange={(e) =>
-                                  handleVariantChange(idx, "sku", e.target.value)
-                                }
-                                className="w-full px-2 py-1 border border-slate-200 rounded font-mono text-[11px] focus:outline-none focus:border-indigo-600"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4">
-                              <input
-                                type="number"
-                                value={v.selling_price}
-                                onChange={(e) =>
-                                  handleVariantChange(
-                                    idx,
-                                    "selling_price",
-                                    Number(e.target.value)
-                                  )
-                                }
-                                className="w-full px-2 py-1 border border-slate-200 rounded font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4">
-                              <input
-                                type="number"
-                                value={v.stock_quantity}
-                                onChange={(e) =>
-                                  handleVariantChange(
-                                    idx,
-                                    "stock_quantity",
-                                    Number(e.target.value)
-                                  )
-                                }
-                                className="w-full px-2 py-1 border border-slate-200 rounded font-bold text-slate-800 focus:outline-none focus:border-indigo-600"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4 text-center">
-                              <input
-                                type="checkbox"
-                                checked={v.in_stock}
-                                onChange={(e) =>
-                                  handleVariantChange(idx, "in_stock", e.target.checked)
-                                }
-                                className="w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer"
-                              />
-                            </td>
-                            <td className="py-2.5 px-4 text-right">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setVariants(variants.filter((_, i) => i !== idx))
-                                }
-                                className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                                title="Remove combination"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
-              <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-slate-500 text-xs">
-                কোন কালার অথবা সাইজ সিলেক্ট করা নেই। ওপরে কালার ও সাইজ চুজ করুন ভ্যারিয়েন্ট কম্বিনেশন দেখতে।
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Column (4 cols): Category, Brand, Status, Flags */}
+        {/* ── Right Column (4 cols): Live Storefront Card Preview & Settings ─ */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Status & Visibility */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <h2 className="text-base font-semibold text-slate-900">Publishing Status</h2>
-
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">Product Active</p>
-                <p className="text-xs text-slate-500">Visible on storefront catalog</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-              />
+          {/* Live Lookbook Card Preview Widget */}
+          <div className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-2xs space-y-3 sticky top-6">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
+              <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5 text-neutral-600" />
+                Live Card Preview
+              </h3>
+              <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-mono">
+                Storefront appearance
+              </span>
             </div>
 
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">Featured Showcase</p>
-                <p className="text-xs text-slate-500">Show on homepage curated list</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={isFeatured}
-                onChange={(e) => setIsFeatured(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-              />
-            </div>
-          </div>
-
-          {/* Category Assignment */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <h2 className="text-base font-semibold text-slate-900">Organization</h2>
-
-            {/* Primary Category */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                <span>
-                  Primary Category <span className="text-rose-500">*</span>
-                </span>
-                {!selectedCategory && (
-                  <span className="text-[10px] text-rose-500 font-bold lowercase">Required / বাধ্যতামূলক</span>
+            {/* The Actual Lookbook Storefront Card Clone */}
+            <div className="border border-neutral-150 rounded-xl overflow-hidden bg-white shadow-xs group">
+              <div className="relative aspect-[3/4] bg-neutral-100 overflow-hidden">
+                {images[0] ? (
+                  <img
+                    src={images[0]}
+                    alt={name || "Product preview"}
+                    className="w-full h-full object-cover object-center group-hover:scale-102 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-neutral-300 p-4 text-center">
+                    <ImageIcon className="w-10 h-10 mb-2 stroke-1" />
+                    <span className="text-xs text-neutral-400">
+                      Upload photo to view preview
+                    </span>
+                  </div>
                 )}
-              </label>
-              <select
-                id="category-select"
-                required
-                suppressHydrationWarning
-                value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value);
-                  setSelectedSubCategory("");
-                  if (errorMessage) setErrorMessage("");
-                }}
-                className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium transition-colors ${
-                  !selectedCategory && errorMessage
-                    ? "border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20"
-                    : "border-slate-200 focus:border-indigo-600"
-                }`}
-              >
-                <option value="">Select Primary Category (বাধ্যতামূলক)...</option>
-                {categoriesList.map((c) => (
-                  <option key={c.id} value={c.slug || c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+
+                {/* Top Badges */}
+                <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 items-start z-10">
+                  {calculatedDiscountBadge && (
+                    <span className="bg-white text-neutral-900 text-[10px] font-bold px-2 py-0.5 shadow-xs">
+                      {calculatedDiscountBadge}
+                    </span>
+                  )}
+                  <span className="bg-black/75 backdrop-blur-xs text-white text-[9px] font-semibold px-2 py-0.5 rounded-xs">
+                    {activeConfig.badgeLabel}
+                  </span>
+                </div>
+
+                {/* Quick View mock overlay */}
+                <div className="absolute bottom-2 left-2 right-2 bg-white/95 backdrop-blur-xs text-neutral-900 text-[11px] font-semibold py-1.5 rounded-sm shadow-xs text-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  Quick View
+                </div>
+              </div>
+
+              {/* Card Meta Content */}
+              <div className="p-3.5 space-y-1 bg-white">
+                <div className="text-xs font-medium text-neutral-900 line-clamp-1">
+                  {name || activeConfig.titlePlaceholder}
+                </div>
+
+                {/* Price */}
+                <div className="flex items-center gap-2 pt-0.5">
+                  <span className="text-xs font-bold text-neutral-950">
+                    ৳{sellingPrice ? Number(sellingPrice).toLocaleString("en-BD") : "2,450"}
+                  </span>
+                  {regularPrice && (
+                    <span className="text-[11px] text-neutral-400 line-through">
+                      ৳{Number(regularPrice).toLocaleString("en-BD")}
+                    </span>
+                  )}
+                </div>
+
+                {/* Selected Sizes preview */}
+                {hasVariants && selectedSizes.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap pt-1">
+                    <span className="text-[10px] text-neutral-400">Sizes:</span>
+                    {selectedSizes.slice(0, 5).map((s) => (
+                      <span
+                        key={s}
+                        className="text-[9px] font-semibold px-1.5 py-0.2 bg-neutral-100 rounded text-neutral-700"
+                      >
+                        {s}
+                      </span>
+                    ))}
+                    {selectedSizes.length > 5 && (
+                      <span className="text-[9px] text-neutral-400">
+                        +{selectedSizes.length - 5}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1 text-[11px] text-amber-500 pt-0.5">
+                  <div className="flex">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star key={i} className="w-2.5 h-2.5 fill-amber-400" />
+                    ))}
+                  </div>
+                  <span className="text-neutral-500 text-[10px] ml-1">
+                    5.0 (New)
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* Sub-Category Option */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Sub-Category (Optional)
-              </label>
-              <select
-                suppressHydrationWarning
-                value={selectedSubCategory}
-                onChange={(e) => setSelectedSubCategory(e.target.value)}
-                disabled={!selectedCategory}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-medium disabled:bg-slate-100 disabled:text-slate-400"
-              >
-                <option value="">
-                  {selectedCategory ? "Select Sub-Category (Optional)..." : "প্রথমে Primary Category সিলেক্ট করুন"}
-                </option>
-                {(
-                  categoriesList.find(
-                    (c) => c.slug === selectedCategory || String(c.id) === String(selectedCategory)
-                  )?.children || []
-                ).map((sub) => (
-                  <option key={sub.id} value={sub.slug || sub.id}>
-                    {sub.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Department & Organization */}
+            <div className="pt-2 space-y-4">
+              <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+                Department & Organization
+              </h3>
 
-            {/* Brand */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Brand
-              </label>
-              <select
-                suppressHydrationWarning
-                value={selectedBrand}
-                onChange={(e) => setSelectedBrand(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-medium"
-              >
-                <option value="">Select Brand (Optional)...</option>
-                {brandsList.map((b) => (
-                  <option key={b.id} value={b.slug || b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+              {/* Department (Tab on Homepage Carousel) */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-800 mb-1">
+                  Lookbook Department (Tab) <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="w-full px-3 py-2 bg-neutral-50/60 border border-neutral-200 rounded-xl text-xs font-medium text-neutral-900 focus:bg-white focus:outline-none"
+                >
+                  <option value="Women">Women (Rethink Wardrobe Women)</option>
+                  <option value="Men">Men (Rethink Wardrobe Men)</option>
+                  <option value="Unisex">Unisex / General</option>
+                </select>
+              </div>
 
-          {/* Quick Help Box */}
-          <div className="bg-indigo-50/70 p-5 rounded-xl border border-indigo-100 space-y-2">
-            <h3 className="text-xs font-bold text-indigo-950 flex items-center gap-1.5 uppercase tracking-wider">
-              <Info className="w-4 h-4 text-indigo-600" />
-              Shoes & Bags Pro-Tip
-            </h3>
-            <p className="text-xs text-indigo-900 leading-relaxed">
-              When adding shoes, enter standard EU shoe sizes (e.g. 39, 40, 41, 42, 43, 44)
-              and colors. Matrix combinations automatically sync SKUs and stock.
-            </p>
+              {/* Sub-Category Dropdown grouped nicely */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-800 mb-1">
+                  Sub-Category
+                </label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full px-3 py-2 bg-neutral-50/60 border border-neutral-200 rounded-xl text-xs font-medium text-neutral-900 focus:bg-white focus:outline-none"
+                >
+                  <optgroup label="👗 Clothing & Apparel">
+                    <option value="dresses">Dresses (পোশাক / ড্রেস)</option>
+                    <option value="t-shirts">T-shirts & Tops (টি-শার্ট ও টপস)</option>
+                    <option value="shirts">Shirts & Blouses (শার্ট)</option>
+                    <option value="outerwear">Jackets & Blazers (ব্লেজার ও জ্যাকেট)</option>
+                    <option value="knitwear">Knitwear & Sweaters (সোয়েটার)</option>
+                  </optgroup>
+                  <optgroup label="👖 Pants & Bottoms">
+                    <option value="trousers">Formal Trousers (ফরমাল ট্রাউজার)</option>
+                    <option value="jeans">Denim Jeans (জিন্স)</option>
+                    <option value="chinos">Chinos & Casual Pants (চিনোস)</option>
+                    <option value="shorts">Shorts (শর্টস)</option>
+                    <option value="skirts">Skirts (স্কার্ট)</option>
+                  </optgroup>
+                  <optgroup label="👞 Shoes & Footwear">
+                    <option value="shoes-loafers">Loafers & Slip-ons (লোফার)</option>
+                    <option value="shoes-boots">Leather Boots (বুটস)</option>
+                    <option value="shoes-sneakers">Sneakers & Runners (স্নিকার্স)</option>
+                    <option value="shoes-heels">Heels & Pumps (হিলস)</option>
+                    <option value="shoes-sandals">Slides & Sandals (স্যান্ডেল)</option>
+                  </optgroup>
+                  <optgroup label="👜 Bags & Leather">
+                    <option value="bags-totes">Totes & Shoppers (টোট ব্যাগ)</option>
+                    <option value="bags-crossbody">Crossbody & Shoulder (ক্রসবডি ব্যাগ)</option>
+                    <option value="bags-wallets">Wallets & Cardholders (ওয়ালেট)</option>
+                    <option value="bags-backpacks">Backpacks (ব্যাকপ্যাক)</option>
+                  </optgroup>
+                  <optgroup label="✨ Accessories & Other">
+                    <option value="accessories-belts">Leather Belts (বেল্ট)</option>
+                    <option value="accessories-eyewear">Sunglasses & Eyewear (সানগ্লাস)</option>
+                    <option value="accessories-scarves">Scarves & Silk (স্কার্ফ)</option>
+                    <option value="accessories-jewelry">Jewelry & Watches (জুয়েলারি ও ওয়াচ)</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* Custom Badge override */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-800 mb-1">
+                  Custom Badge Override
+                </label>
+                <input
+                  type="text"
+                  value={customBadge}
+                  onChange={(e) => setCustomBadge(e.target.value)}
+                  placeholder="e.g. 19% or NEW ARRIVAL"
+                  className="w-full px-3 py-2 bg-neutral-50/60 border border-neutral-200 rounded-xl text-xs text-neutral-900 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <hr className="border-neutral-100" />
+
+              {/* Active Toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-neutral-800">
+                    Publish to Storefront
+                  </p>
+                  <p className="text-[11px] text-neutral-400">
+                    Live on homepage carousel
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="w-4 h-4 rounded text-neutral-900 cursor-pointer"
+                />
+              </div>
+
+              {/* Featured Showcase */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-neutral-800">
+                    Featured Showcase
+                  </p>
+                  <p className="text-[11px] text-neutral-400">
+                    Pin to top of lookbook
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={isFeatured}
+                  onChange={(e) => setIsFeatured(e.target.checked)}
+                  className="w-4 h-4 rounded text-neutral-900 cursor-pointer"
+                />
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Bottom Save Action Bar */}
-        <div className="lg:col-span-12 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-slate-900">
-                {editId ? "Ready to update product?" : "Ready to publish product?"}
-              </p>
-              <p className="text-xs text-slate-500">
-                {variants.length} Variants ({variants.reduce((s, v) => s + (Number(v.stock_quantity) || 0), 0)} Stock Units) will be saved to inventory.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-            <Link href="/admin/products">
-              <Button type="button" variant="outline" size="sm">
-                Cancel
-              </Button>
-            </Link>
-            <Button
-              type="submit"
-              size="sm"
-              onClick={handleSaveProduct}
-              disabled={isSubmitting}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2 shadow-sm"
-            >
-              {isSubmitting ? "Saving Product..." : editId ? "Save Changes" : "Publish Product"}
-            </Button>
-          </div>
-        </div>
-      </form>
+      </div>
     </div>
   );
 }
 
-export default function AdminProductCreatePage() {
+export default function ProductCreatePage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-2">
-          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm">Loading product editor...</p>
+        <div className="p-12 text-center text-xs text-neutral-500">
+          Loading product editor...
         </div>
       }
     >

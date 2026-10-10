@@ -30,23 +30,12 @@ export default function AdminOrderCreatePage() {
   const [customerNotes, setCustomerNotes] = useState("");
 
   // Product Selection State
-  const [selectedProductId, setSelectedProductId] = useState(mockProducts[0]?.id || "");
+  const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [itemQuantity, setItemQuantity] = useState(1);
 
   // Cart / Line Items
-  const [orderItems, setOrderItems] = useState([
-    {
-      id: 1,
-      product_id: mockProducts[0]?.id,
-      name: mockProducts[0]?.name,
-      variant: "Size: L, Color: Classic White",
-      sku: mockProducts[0]?.variants?.[0]?.sku || "OXF-WHT-L",
-      price: mockProducts[0]?.discount_price || mockProducts[0]?.selling_price || 1850,
-      quantity: 1,
-      image: mockProducts[0]?.image,
-    },
-  ]);
+  const [orderItems, setOrderItems] = useState([]);
 
   // Payment & Discount State
   const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery (COD)");

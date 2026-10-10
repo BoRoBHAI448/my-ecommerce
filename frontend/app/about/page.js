@@ -6,8 +6,8 @@ export async function generateMetadata() {
   const storeRes = await getStore();
   const store = storeRes?.data;
   return {
-    title: `About Us | ${store?.name || "Apex Cart"}`,
-    description: `Learn about our craftsmanship, story, and values at ${store?.name || "Apex Cart"}.`,
+    title: `About Us | ${store?.name || "LIGGLO Atelier"}`,
+    description: `Learn about our craftsmanship, story, and values at ${store?.name || "LIGGLO Atelier"}.`,
   };
 }
 
@@ -27,7 +27,7 @@ export default async function AboutPage() {
           Crafting Elegance for Daily Living
         </h1>
         <p className="text-sm sm:text-base text-text-muted max-w-2xl mx-auto leading-relaxed">
-          {store?.name || "Apex Cart"} was founded with a singular conviction: luxury is not an extravagance, but an uncompromising commitment to quality materials and timeless design.
+          {store?.name || "LIGGLO Atelier"} was founded with a singular conviction: luxury is not an extravagance, but an uncompromising commitment to quality materials and timeless design.
         </p>
       </div>
 

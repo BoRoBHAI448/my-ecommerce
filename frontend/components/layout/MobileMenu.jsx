@@ -1,126 +1,79 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Drawer } from "@/components/ui/Drawer";
-import { useStore } from "@/lib/store-context";
-import { Phone, Mail, MapPin, ChevronRight, User, ShoppingBag } from "lucide-react";
+import { X } from "lucide-react";
 
-export function MobileMenu({ isOpen, onClose, categories = [] }) {
-  const store = useStore();
+export function MobileMenu({ isOpen, onClose }) {
+  const router = useRouter();
+
+  const navLinks = [
+    { label: "Categories", href: "/shop" },
+    { label: "Women", href: "/category/women-s" },
+    { label: "Men", href: "/category/men-s" },
+    { label: "Blog", href: "/about" },
+    { label: "About Us", href: "/about" },
+    { label: "Contact", href: "/contact" },
+  ];
+
+  const handleLinkClick = (e, href) => {
+    e.preventDefault();
+    onClose();
+    router.push(href);
+  };
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} side="left" title="Menu" size="sm">
-      <div className="flex flex-col h-full space-y-6">
-        {/* Main Links */}
-        <div className="space-y-1">
-          <Link
-            href="/"
-            onClick={onClose}
-            className="flex items-center justify-between py-2.5 text-sm font-semibold text-text hover:text-secondary transition-colors"
-          >
-            <span>Home</span>
-            <ChevronRight className="w-4 h-4 text-text-muted" />
-          </Link>
-          <Link
-            href="/shop"
-            onClick={onClose}
-            className="flex items-center justify-between py-2.5 text-sm font-semibold text-text hover:text-secondary transition-colors"
-          >
-            <span>All Products</span>
-            <ChevronRight className="w-4 h-4 text-text-muted" />
-          </Link>
-        </div>
-
-        {/* Categories List */}
+    <Drawer
+      isOpen={isOpen}
+      onClose={onClose}
+      side="left"
+      size="sm"
+      hideHeader
+      className="bg-white border-none shadow-2xl w-[82vw] max-w-[310px] sm:max-w-xs"
+    >
+      <div className="flex flex-col h-full min-h-[100dvh] justify-between px-6 pt-6 pb-8 bg-white text-neutral-900">
+        {/* Top Header: "Menu" on left, X on right */}
         <div>
-          <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
-            Categories & Sub-Departments
-          </h4>
-          <div className="space-y-1">
-            {categories.map((cat) => (
-              <div key={cat.id} className="border-b border-border/40 pb-1">
-                <div className="flex items-center justify-between">
-                  <Link
-                    href={`/category/${cat.slug}`}
-                    onClick={onClose}
-                    className="flex-1 py-2 text-sm font-semibold text-text hover:text-secondary transition-colors"
-                  >
-                    {cat.name}
-                  </Link>
-                  {cat.children?.length > 0 && (
-                    <span className="text-[10px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-full">
-                      {cat.children.length} sub
-                    </span>
-                  )}
-                </div>
-                {cat.children?.length > 0 && (
-                  <div className="pl-3 pb-1 space-y-1 border-l-2 border-border/60 ml-1">
-                    {cat.children.map((sub) => (
-                      <Link
-                        key={sub.id}
-                        href={`/category/${sub.slug}`}
-                        onClick={onClose}
-                        className="block py-1 text-xs text-text-muted hover:text-primary transition-colors font-medium"
-                      >
-                        {sub.name}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <div className="flex items-center justify-between mb-8">
+            <span className="text-neutral-400 font-semibold text-sm tracking-normal">
+              Menu
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+              }}
+              aria-label="Close menu"
+              className="p-2 -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-neutral-900 hover:text-black active:scale-95 transition-transform cursor-pointer touch-manipulation"
+            >
+              <X className="w-5 h-5 stroke-[1.8]" />
+            </button>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="flex flex-col space-y-3">
+            {navLinks.map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                onClick={(e) => handleLinkClick(e, link.href)}
+                className="text-neutral-900 font-bold text-[15.5px] tracking-tight hover:text-neutral-600 active:opacity-60 transition-colors py-1.5 block cursor-pointer touch-manipulation"
+              >
+                {link.label}
+              </a>
             ))}
-          </div>
+          </nav>
         </div>
 
-        {/* Quick Account Links */}
-        <div className="border-t border-border pt-4 space-y-2">
-          <Link
-            href="/account/orders"
-            onClick={onClose}
-            className="flex items-center gap-3 py-2 text-sm text-text hover:text-secondary transition-colors"
-          >
-            <ShoppingBag className="w-4 h-4 text-text-muted" />
-            <span>My Orders & Tracking</span>
-          </Link>
-          <Link
-            href="/login"
-            onClick={onClose}
-            className="flex items-center gap-3 py-2 text-sm text-text hover:text-secondary transition-colors"
-          >
-            <User className="w-4 h-4 text-text-muted" />
-            <span>Login / Register</span>
-          </Link>
+        {/* Bottom Pinned Footer */}
+        <div className="pt-8">
+          <p className="text-neutral-400 text-xs font-normal leading-relaxed">
+            Copyright 2026 © Ligloo. All rights reserved.
+          </p>
         </div>
-
-        {/* Contact Info */}
-        {store?.contact && (
-          <div className="mt-auto border-t border-border pt-4 text-xs text-text-muted space-y-2">
-            {store.contact.phone && (
-              <a
-                href={`tel:${store.contact.phone}`}
-                className="flex items-center gap-2 hover:text-text transition-colors"
-              >
-                <Phone className="w-3.5 h-3.5 text-secondary" />
-                <span>{store.contact.phone}</span>
-              </a>
-            )}
-            {store.contact.email && (
-              <a
-                href={`mailto:${store.contact.email}`}
-                className="flex items-center gap-2 hover:text-text transition-colors"
-              >
-                <Mail className="w-3.5 h-3.5 text-secondary" />
-                <span>{store.contact.email}</span>
-              </a>
-            )}
-            {store.contact.address && (
-              <div className="flex items-start gap-2">
-                <MapPin className="w-3.5 h-3.5 text-secondary shrink-0 mt-0.5" />
-                <span>{store.contact.address}</span>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </Drawer>
   );

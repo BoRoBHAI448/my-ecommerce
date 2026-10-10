@@ -4,43 +4,45 @@ export function TrustBadges() {
   const badges = [
     {
       icon: Truck,
-      title: "Nationwide Fast Delivery",
-      description: "Quick 24-48h delivery inside Dhaka, 3-4 days nationwide",
+      title: "Fast Nationwide Delivery",
+      description: "24-48h in Dhaka, 3-4 days nationwide",
     },
     {
       icon: ShieldCheck,
-      title: "Cash on Delivery",
-      description: "Inspect parcel at your doorstep before final payment",
+      title: "Doorstep Inspection",
+      description: "Inspect before payment with full COD",
     },
     {
       icon: RefreshCw,
       title: "7-Day Easy Exchange",
-      description: "Hassle-free size and product replacement guarantee",
+      description: "Hassle-free size replacement guarantee",
     },
     {
       icon: Headphones,
-      title: "Dedicated Support",
-      description: "Call or chat on WhatsApp 7 days a week from 9 AM",
+      title: "Concierge Support",
+      description: "Dedicated assistance 7 days a week",
     },
   ];
 
   return (
-    <section className="py-10 sm:py-14 bg-muted/40 border-t border-border/70">
+    <section className="py-12 sm:py-16 bg-white border-t border-neutral-200/80">
       <div className="container-custom">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {badges.map((b, idx) => {
             const Icon = b.icon;
             return (
               <div
                 key={idx}
-                className="flex items-start gap-4 p-4 rounded-theme bg-surface border border-border/60 shadow-2xs"
+                className="flex items-center gap-4 p-4 rounded-xl hover:bg-neutral-50 transition-colors"
               >
-                <div className="w-12 h-12 rounded-full bg-secondary/10 text-secondary flex items-center justify-center shrink-0">
-                  <Icon className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-full bg-neutral-100 text-neutral-900 flex items-center justify-center shrink-0">
+                  <Icon className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-text mb-1">{b.title}</h3>
-                  <p className="text-xs text-text-muted leading-relaxed">
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-neutral-950 mb-0.5">
+                    {b.title}
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-normal leading-relaxed">
                     {b.description}
                   </p>
                 </div>

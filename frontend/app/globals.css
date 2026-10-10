@@ -56,6 +56,18 @@
   --radius-theme: var(--radius);
   --radius-theme-sm: var(--radius-sm);
   --radius-theme-lg: var(--radius-lg);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), "Bodoni Moda", "Didot", "Cinzel", serif;
+  --font-syne: var(--font-syne), "Syne", sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), "Bodoni Moda", "Didot", "Cinzel", serif;
+}
+
+.font-syne {
+  font-family: var(--font-syne), "Syne", sans-serif;
 }
 
 @layer base {
@@ -110,3 +122,27 @@
     padding-right: 2rem;
   }
 }
+
+/* ── Seamless Infinite Marquee Ticker ───────────────────────── */
+@keyframes marquee-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-marquee-infinite {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 95s linear infinite;
+  will-change: transform;
+}
+
+@media (max-width: 640px) {
+  .animate-marquee-infinite {
+    animation-duration: 80s;
+  }
+}
+

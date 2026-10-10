@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +13,22 @@ export function Drawer({
   children,
   size = "md",
   className,
+  hideHeader = false,
 }) {
   const drawerRef = useRef(null);
+  const [mounted, setMounted] = useState(false);
+  const openTimeRef = useRef(0);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      openTimeRef.current = Date.now();
+      document.body.style.overflow = "hidden";
+    }
+
     function handleKeyDown(e) {
       if (e.key === "Escape" && isOpen) {
         onClose();
@@ -23,7 +36,6 @@ export function Drawer({
     }
 
     if (isOpen) {
-      document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
     }
 
@@ -33,7 +45,17 @@ export function Drawer({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
+
+  const handleBackdropClick = (e) => {
+    // Ignore touch tap ghost-clicks occurring immediately after mounting
+    if (Date.now() - openTimeRef.current < 250) {
+      return;
+    }
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
 
   const sizeClasses = {
     sm: "max-w-xs",
@@ -47,52 +69,57 @@ export function Drawer({
     left: "left-0 top-0 bottom-0 border-r animate-in slide-in-from-left",
   }[side] || "right-0 top-0 bottom-0 border-l animate-in slide-in-from-right";
 
-  return (
+  const drawerContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? "drawer-title" : undefined}
-      className="fixed inset-0 z-50 overflow-hidden"
+      className="fixed inset-0 z-[9999] overflow-hidden"
     >
-      {/* Backdrop */}
+      {/* Backdrop with touch ghost-click protection */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-200"
-        onClick={onClose}
+        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-200 z-10 touch-manipulation"
+        onClick={handleBackdropClick}
         aria-hidden="true"
       />
 
       {/* Drawer Panel */}
       <div
         ref={drawerRef}
+        onClick={(e) => e.stopPropagation()}
         className={cn(
-          "fixed flex flex-col w-full bg-surface shadow-2xl border-border z-10 duration-200 ease-out",
+          "fixed flex flex-col w-full bg-surface shadow-2xl border-border z-20 duration-200 ease-out touch-pan-y",
           sizeClasses,
           sideClasses,
           className
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          {title ? (
-            <h3 id="drawer-title" className="text-base font-bold text-text">
-              {title}
-            </h3>
-          ) : (
-            <div />
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close drawer"
-            className="rounded-theme p-1 text-text-muted hover:bg-muted hover:text-text transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        {!hideHeader && (
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            {title ? (
+              <h3 id="drawer-title" className="text-base font-bold text-text">
+                {title}
+              </h3>
+            ) : (
+              <div />
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close drawer"
+              className="rounded-theme p-2 text-text-muted hover:bg-muted hover:text-text transition-colors touch-manipulation"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className={cn("flex-1 overflow-y-auto", !hideHeader && "px-5 py-4")}>{children}</div>
       </div>
     </div>
   );
+
+  return createPortal(drawerContent, document.body);
 }

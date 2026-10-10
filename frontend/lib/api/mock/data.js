@@ -1,23 +1,23 @@
 export const mockStore = {
   id: "store_1",
-  name: "ligglo Fashion Zone",
-  slug: "ligglo-fashion-zone",
-  tagline: "Premium Everyday Essentials & Lifestyle",
+  name: "Ligloo",
+  slug: "ligloo",
+  tagline: "Quiet Tailoring & Modern Luxury",
   currency: "BDT",
   currency_symbol: "৳",
   logo: "/logo.png",
   favicon: "/favicon.ico",
   colors: {
-    primary: "#0f172a",
+    primary: "#09090b",
     primary_contrast: "#ffffff",
     secondary: "#f59e0b",
     secondary_contrast: "#ffffff",
   },
   contact: {
     phone: "+880 1711-223344",
-    email: "support@ligglo.com",
+    email: "concierge@ligglo.com",
     address: "House 42, Road 11, Banani, Dhaka-1213, Bangladesh",
-    hours: "9:00 AM - 10:00 PM (Daily)",
+    hours: "10:00 AM - 10:00 PM (Daily)",
   },
   whatsapp: "8801711223344",
   social: {
@@ -27,71 +27,117 @@ export const mockStore = {
   },
   announcement: {
     enabled: true,
-    text: "🎉 Free Delivery inside Dhaka on orders above ৳2,000! Use code FREEDEL",
+    text: "🔥 NEW SEASON DROP: Complimentary Express Shipping Nationwide On Orders Over ৳2,500",
   },
   delivery_settings: {
     inside_dhaka: 70,
     sub_dhaka: 100,
     outside_dhaka: 130,
-    free_delivery_threshold: 2000,
+    free_delivery_threshold: 2500,
   },
 };
 
 export const mockCategories = [
-  { id: 1, name: "Women's", slug: "women-s", description: "Women's fashion & apparel" },
-  { id: 2, name: "Men's", slug: "men-s", description: "Men's clothing & accessories" },
-  { id: 3, name: "Footwear", slug: "footwear", description: "Leather shoes & boots" },
-  { id: 4, name: "Bags & Accessories", slug: "bags-accessories", description: "Leather bags and accessories" },
+  {
+    id: 1,
+    name: "Footwear & Kicks",
+    slug: "footwear",
+    item_count: 24,
+    description: "Engineered sneakers, runners, and premium leather formals.",
+    image: "https://images.unsplash.com/photo-1552346154-21d32810aba3?w=800&auto=format&fit=crop&q=80",
+  },
+  {
+    id: 2,
+    name: "Men's Apparel",
+    slug: "men-s",
+    item_count: 38,
+    description: "Minimalist tailoring, heavyweight tees, and technical outerwear.",
+    image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80",
+  },
+  {
+    id: 3,
+    name: "Women's Collection",
+    slug: "women-s",
+    item_count: 42,
+    description: "Contemporary silhouettes, luxury dresses, and active essentials.",
+    image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&auto=format&fit=crop&q=80",
+  },
+  {
+    id: 4,
+    name: "Bags & Leather",
+    slug: "bags-accessories",
+    item_count: 19,
+    description: "Full-grain leather totes, weekend duffels, and everyday carriers.",
+    image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&auto=format&fit=crop&q=80",
+  },
+  {
+    id: 5,
+    name: "Urban Streetwear",
+    slug: "streetwear",
+    item_count: 16,
+    description: "Oversized hoodies, cargo silhouettes, and signature capsule drops.",
+    image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&auto=format&fit=crop&q=80",
+  },
 ];
 
 export const mockBanners = {
-  hero: [],
-  promo: [],
+  hero: [
+    {
+      id: 1,
+      badge: "SEASON '26 DROP",
+      title: "RUN BEYOND LIMITS",
+      subtitle: "The ultra-responsive AirPulse Runner engineered with dual-density foam for unmatched motion.",
+      image: "https://images.unsplash.com/photo-1556906781-9a412961c28c?w=1920&auto=format&fit=crop&q=85",
+      cta_text: "Shop Footwear",
+      cta_link: "/category/footwear",
+      secondary_cta_text: "Explore Lookbook",
+      secondary_cta_link: "/shop",
+    },
+    {
+      id: 2,
+      badge: "EDITORIAL CAPSULE",
+      title: "TIMELESS MONOCHROME",
+      subtitle: "Precision tailoring crafted from sustainable heavyweight organic cotton and treated linen.",
+      image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1920&auto=format&fit=crop&q=85",
+      cta_text: "Explore Men",
+      cta_link: "/category/men-s",
+      secondary_cta_text: "Explore Women",
+      secondary_cta_link: "/category/women-s",
+    },
+    {
+      id: 3,
+      badge: "ATELIER LEATHER CRAFT",
+      title: "LUXURY IN MOTION",
+      subtitle: "Hand-finished Florentine leather bags and classic silhouette derby shoes made to endure.",
+      image: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=1920&auto=format&fit=crop&q=85",
+      cta_text: "Shop Leather Goods",
+      cta_link: "/category/bags-accessories",
+      secondary_cta_text: "View All Drops",
+      secondary_cta_link: "/shop",
+    },
+  ],
+  promo: [
+    {
+      id: 1,
+      badge: "THE SPOTLIGHT SERIES",
+      title: "CRAFTED FOR EVERY DIMENSION",
+      subtitle: "Where peak athletic functionality meets high-couture aesthetic. Explore the Spring 2026 limited drop.",
+      image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&auto=format&fit=crop&q=85",
+      link: "/shop?featured=true",
+      button_text: "Discover The Edit",
+    },
+  ],
 };
 
 export const mockBrands = [
-  { id: 1, name: "Apex", slug: "apex" },
-  { id: 2, name: "Bata", slug: "bata" },
-  { id: 3, name: "Ligglo Exclusive", slug: "ligglo-exclusive" },
+  { id: 1, name: "LIGGLO ATELIER", slug: "ligglo-atelier" },
+  { id: 2, name: "APEX SIGNATURE", slug: "apex" },
+  { id: 3, name: "BATA HERITAGE", slug: "bata" },
+  { id: 4, name: "MONO STUDIO", slug: "mono-studio" },
+  { id: 5, name: "AEROLAB CO.", slug: "aerolab" },
 ];
 
-export const mockProducts = [
-  {
-    id: 101,
-    name: "Classic Leather Formal Shoes",
-    slug: "classic-leather-formal-shoes",
-    selling_price: 3500,
-    discount_price: 2990,
-    image: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80"],
-    category: { id: 3, name: "Footwear", slug: "footwear" },
-    brand: { id: 1, name: "Apex", slug: "apex" },
-    in_stock: true,
-    is_featured: true,
-    variants: [
-      { id: 1011, sku: "SHOE-BLK-40", color: "Black", size: "40", selling_price: 2990, stock_quantity: 15, in_stock: true },
-      { id: 1012, sku: "SHOE-BLK-41", color: "Black", size: "41", selling_price: 2990, stock_quantity: 12, in_stock: true },
-      { id: 1013, sku: "SHOE-BRN-42", color: "Brown", size: "42", selling_price: 2990, stock_quantity: 10, in_stock: true },
-    ],
-  },
-  {
-    id: 102,
-    name: "Women's Leather Tote Bag",
-    slug: "women-s-leather-tote-bag",
-    selling_price: 4200,
-    discount_price: 3500,
-    image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=80"],
-    category: { id: 1, name: "Women's", slug: "women-s" },
-    brand: { id: 3, name: "Ligglo Exclusive", slug: "ligglo-exclusive" },
-    in_stock: true,
-    is_featured: true,
-    variants: [
-      { id: 1021, sku: "BAG-BLK", color: "Black", size: "One Size", selling_price: 3500, stock_quantity: 8, in_stock: true },
-      { id: 1022, sku: "BAG-TAN", color: "Tan", size: "One Size", selling_price: 3500, stock_quantity: 14, in_stock: true },
-    ],
-  },
-];
+export const mockProducts = [];
 
 export const mockCoupons = [
   { code: "FREEDEL", type: "delivery", discount: 100, min_order: 1500 },
@@ -100,5 +146,4 @@ export const mockCoupons = [
 ];
 
 export const mockOrders = [];
-
 export const mockIncompleteOrders = [];

@@ -27,9 +27,9 @@ export default function AdminSettingsPage() {
   const [toastMessage, setToastMessage] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
 
-  const [businessName, setBusinessName] = useState(store?.name || "Apex Cart");
+  const [businessName, setBusinessName] = useState(store?.name || "LIGGLO Atelier");
   const [phone, setPhone] = useState(store?.contact?.phone || "+880 1711-223344");
-  const [email, setEmail] = useState(store?.contact?.email || "support@apexcart.com");
+  const [email, setEmail] = useState(store?.contact?.email || "concierge@ligglo.com");
   const [address, setAddress] = useState(
     store?.contact?.address || "House 42, Road 11, Banani, Dhaka-1213, Bangladesh"
   );

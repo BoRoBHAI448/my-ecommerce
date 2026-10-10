@@ -3,7 +3,12 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store-context";
-import { mockProducts, mockCategories, mockBrands } from "@/lib/api/mock/data";
+import { mockCategories, mockBrands } from "@/lib/api/mock/data";
+import { supabase } from "@/lib/supabase/client";
+import {
+  deleteAdminProductInSupabase,
+  updateAdminProductInSupabase,
+} from "@/lib/supabase/products";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -28,43 +33,96 @@ import {
 } from "lucide-react";
 
 export default function AdminProductsPage() {
-  const { products: storeProducts, categories: storeCategories, brands: storeBrands, updateProducts } = useStore();
+  const {
+    products: storeProducts,
+    categories: storeCategories,
+    brands: storeBrands,
+    updateProducts,
+  } = useStore();
   const [mounted, setMounted] = useState(false);
-  const [localOverride, setLocalOverride] = useState(null);
+  const [supabaseProducts, setSupabaseProducts] = useState([]);
+  const [loadingDb, setLoadingDb] = useState(true);
 
   const categoriesList = mounted && Array.isArray(storeCategories) ? storeCategories : mockCategories;
   const brandsList = mounted && Array.isArray(storeBrands) ? storeBrands : mockBrands;
 
+  async function loadProductsFromSupabase() {
+    setLoadingDb(true);
+    try {
+      const res = await fetch("/api/admin/products");
+      let data = null;
+      if (res.ok) {
+        const json = await res.json();
+        data = json.data;
+      }
+      if (!data) {
+        const fallback = await supabase
+          .from("products")
+          .select("*")
+          .order("created_at", { ascending: false });
+        data = fallback.data;
+      }
+      if (Array.isArray(data)) {
+        const formatted = data.map((item) => ({
+          ...item,
+          id: item.id,
+          name: item.name,
+          slug: item.slug,
+          image: item.thumbnail || item.images?.[0] || "",
+          images: item.images || [],
+          selling_price: Number(item.selling_price || item.regular_price || 0),
+          discount_price: item.discount_price ? Number(item.discount_price) : null,
+          regular_price: Number(item.regular_price || 0),
+          in_stock: Boolean(item.is_active !== false && item.in_stock !== false),
+          stock_count: Number(item.stock || 0),
+          rating: Number(item.rating || 5.0),
+          category: { name: item.gender || "General", slug: item.gender?.toLowerCase() || "general" },
+          brand: null,
+          variants: [],
+        }));
+        setSupabaseProducts(formatted);
+        if (typeof updateProducts === "function") {
+          updateProducts(formatted);
+        }
+      }
+    } catch (err) {
+      console.warn("Fetch Supabase products notice:", err);
+    } finally {
+      setLoadingDb(false);
+    }
+  }
+
   useEffect(() => {
     setMounted(true);
+    loadProductsFromSupabase();
   }, []);
 
-  // Compute effective products list reactively
   const products = useMemo(() => {
-    if (!mounted) {
-      return mockProducts;
+    if (!mounted) return [];
+
+    const LEGACY_MOCK_SLUGS = new Set([
+      "veloce-carbon-trail-sneaker",
+      "monochrome-tailored-relaxed-trouser",
+      "heritage-oxford-commuter-pack",
+      "architectural-trench-overcoat",
+      "heavyweight-boxy-graphic-tee",
+      "apex-court-minimalist-runner",
+      "atelier-structured-leather-tote",
+      "airpulse-retro-90-sneakers",
+      "classic-leather-formal-shoes",
+      "women-s-leather-tote-bag",
+    ]);
+
+    // Once database has finished fetching, Supabase is the single source of truth
+    if (!loadingDb) {
+      return supabaseProducts;
     }
 
-    if (localOverride !== null) return localOverride;
-
-    if (Array.isArray(storeProducts) && storeProducts.length > 0) {
-      return storeProducts;
-    }
-
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("store_custom_products");
-        if (saved !== null) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
-      } catch {}
-    }
-
-    return Array.isArray(storeProducts) ? storeProducts : mockProducts;
-  }, [mounted, localOverride, storeProducts]);
+    // While initial load is in progress, show clean local products
+    return (Array.isArray(storeProducts) ? storeProducts : []).filter(
+      (p) => p && !LEGACY_MOCK_SLUGS.has(p.slug)
+    );
+  }, [mounted, loadingDb, supabaseProducts, storeProducts]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -124,7 +182,10 @@ export default function AdminProductsPage() {
     let totalStockUnits = 0;
 
     products.forEach((p) => {
-      const units = (p.variants || []).reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
+      const units =
+        p.variants && p.variants.length > 0
+          ? p.variants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0)
+          : Number(p.stock || p.stock_count || 0);
       totalStockUnits += units;
       if (units === 0 || !p.in_stock) {
         outOfStockCount++;
@@ -206,65 +267,112 @@ export default function AdminProductsPage() {
   };
 
   // Status toggle
-  const handleToggleStatus = (id) => {
-    const updated = products.map((p) => {
-      if (p.id === id) {
-        const next = !p.in_stock;
-        showToast(`"${p.name}" status changed to ${next ? "Active" : "Draft"}`);
-        return { ...p, in_stock: next };
-      }
-      return p;
-    });
-    saveAndSyncProducts(updated);
-  };
-
-  // Clone product
-  const handleCloneProduct = (product) => {
-    const cloned = {
-      ...product,
-      id: Date.now(),
-      name: `${product.name} (Copy)`,
-      slug: `${product.slug}-copy-${Math.floor(Math.random() * 1000)}`,
-      variants: (product.variants || []).map((v) => ({
-        ...v,
-        id: Date.now() + Math.random(),
-        sku: v.sku ? `${v.sku}-COPY` : `SKU-${Date.now()}`,
-      })),
-    };
-    const updated = [cloned, ...products];
-    saveAndSyncProducts(updated);
-    showToast(`Product duplicated successfully!`);
+  const handleToggleStatus = async (id) => {
+    const target = products.find((p) => p.id === id);
+    if (!target) return;
+    const nextStatus = !target.in_stock;
+    try {
+      await updateAdminProductInSupabase(id, { is_active: nextStatus, in_stock: nextStatus });
+    } catch (err) {
+      console.warn("Supabase toggle status notice:", err);
+    }
+    setSupabaseProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, in_stock: nextStatus } : p))
+    );
+    showToast(`"${target.name}" status changed to ${nextStatus ? "Active" : "Draft"}`);
   };
 
   // Delete product
-  const confirmDeleteProduct = () => {
+  const confirmDeleteProduct = async () => {
     if (!deleteModalProduct) return;
-    const updated = products.filter((p) => p.id !== deleteModalProduct.id);
-    saveAndSyncProducts(updated);
-    setSelectedIds((prev) => prev.filter((id) => id !== deleteModalProduct.id));
-    showToast(`"${deleteModalProduct.name}" deleted successfully.`);
+    const target = deleteModalProduct;
+    try {
+      await deleteAdminProductInSupabase(target.id, target.slug);
+    } catch (err) {
+      console.warn("Supabase delete notice:", err);
+    }
+
+    setSupabaseProducts((prev) =>
+      prev.filter((p) => p.id !== target.id && p.slug !== target.slug)
+    );
+
+    if (typeof updateProducts === "function") {
+      updateProducts((prev) =>
+        Array.isArray(prev)
+          ? prev.filter((p) => p.id !== target.id && p.slug !== target.slug)
+          : []
+      );
+    }
+
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("store_custom_products");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const filtered = parsed.filter(
+            (p) => p.id !== target.id && p.slug !== target.slug
+          );
+          localStorage.setItem("store_custom_products", JSON.stringify(filtered));
+        }
+      } catch {}
+    }
+
+    setSelectedIds((prev) => prev.filter((id) => id !== target.id));
+    showToast(`"${target.name}" deleted successfully.`);
     setDeleteModalProduct(null);
   };
 
   // Bulk actions
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (
       window.confirm(
         `Are you sure you want to delete ${selectedIds.length} selected products?`
       )
     ) {
-      const updated = products.filter((p) => !selectedIds.includes(p.id));
-      saveAndSyncProducts(updated);
+      const idsToDelete = [...selectedIds];
+      try {
+        await Promise.all(idsToDelete.map((id) => deleteAdminProductInSupabase(id)));
+      } catch (err) {
+        console.warn("Supabase bulk delete notice:", err);
+      }
+      setSupabaseProducts((prev) =>
+        prev.filter((p) => !idsToDelete.includes(p.id))
+      );
+      if (typeof updateProducts === "function") {
+        updateProducts((prev) =>
+          Array.isArray(prev)
+            ? prev.filter((p) => !idsToDelete.includes(p.id))
+            : []
+        );
+      }
+      if (typeof window !== "undefined") {
+        try {
+          const raw = localStorage.getItem("store_custom_products");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const filtered = parsed.filter((p) => !idsToDelete.includes(p.id));
+            localStorage.setItem("store_custom_products", JSON.stringify(filtered));
+          }
+        } catch {}
+      }
+      showToast(`${idsToDelete.length} products removed.`);
       setSelectedIds([]);
-      showToast(`${selectedIds.length} products removed.`);
     }
   };
 
-  const handleBulkStatusChange = (status) => {
-    const updated = products.map((p) =>
-      selectedIds.includes(p.id) ? { ...p, in_stock: status } : p
+  const handleBulkStatusChange = async (status) => {
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          updateAdminProductInSupabase(id, { is_active: status, in_stock: status })
+        )
+      );
+    } catch (err) {
+      console.warn("Supabase bulk status notice:", err);
+    }
+    setSupabaseProducts((prev) =>
+      prev.map((p) => (selectedIds.includes(p.id) ? { ...p, in_stock: status } : p))
     );
-    saveAndSyncProducts(updated);
     showToast(`Updated status for ${selectedIds.length} products.`);
     setSelectedIds([]);
   };
@@ -522,22 +630,41 @@ export default function AdminProductsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredProducts.length === 0 ? (
+              {!mounted || loadingDb ? (
                 <tr>
-                  <td colSpan="7" className="py-12 text-center text-slate-400">
+                  <td colSpan="7" className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2.5">
+                      <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-xs text-slate-500 font-medium">Loading catalog...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredProducts.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="py-16 text-center text-slate-400">
                     <Package className="w-12 h-12 mx-auto stroke-1 text-slate-300 mb-2" />
-                    <p className="text-base font-medium text-slate-600">No products found</p>
+                    <p className="text-base font-semibold text-slate-800">No products in inventory</p>
                     <p className="text-xs text-slate-400 mt-1">
-                      Try clearing filters or search with another term.
+                      Ready to add your first product? Click the button below.
                     </p>
+                    <Link
+                      href="/admin/products/create"
+                      className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 bg-neutral-900 text-white rounded-lg text-xs font-semibold hover:bg-neutral-800 transition-colors"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      Add New Product
+                    </Link>
                   </td>
                 </tr>
               ) : (
                 filteredProducts.map((product) => {
-                  const totalUnits = (product.variants || []).reduce(
-                    (acc, v) => acc + (v.stock_quantity || 0),
-                    0
-                  );
+                  const totalUnits =
+                    product.variants && product.variants.length > 0
+                      ? product.variants.reduce(
+                          (acc, v) => acc + (v.stock_quantity || 0),
+                          0
+                        )
+                      : Number(product.stock || product.stock_count || 0);
                   const variantCount = product.variants ? product.variants.length : 0;
                   const isChecked = selectedIds.includes(product.id);
 
@@ -717,13 +844,13 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Footer info */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2" suppressHydrationWarning>
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
           <span>
-            Showing <strong className="text-slate-700" suppressHydrationWarning>{filteredProducts.length}</strong> of{" "}
-            <strong className="text-slate-700" suppressHydrationWarning>{products.length}</strong> total products
+            Showing <strong className="text-slate-700">{!mounted || loadingDb ? 0 : filteredProducts.length}</strong> of{" "}
+            <strong className="text-slate-700">{!mounted || loadingDb ? 0 : products.length}</strong> total products
           </span>
           <span className="text-slate-400">
-            Total Inventory Units: <strong suppressHydrationWarning>{stats.totalStockUnits} items</strong>
+            Total Inventory Units: <strong>{!mounted || loadingDb ? 0 : stats.totalStockUnits} items</strong>
           </span>
         </div>
       </div>

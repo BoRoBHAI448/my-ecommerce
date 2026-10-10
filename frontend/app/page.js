@@ -4,7 +4,10 @@ import {
   getBrands,
   getProducts,
 } from "@/lib/api/storefront";
-import { HeroBanner } from "@/components/home/HeroBanner";
+import { LuxuryEditorialHero } from "@/components/home/LuxuryEditorialHero";
+import { EditorialTicker } from "@/components/home/EditorialTicker";
+import { RethinkWardrobeSection } from "@/components/home/RethinkWardrobeSection";
+import { GenderSplitBanner } from "@/components/home/GenderSplitBanner";
 import { CategoryGrid } from "@/components/home/CategoryGrid";
 import { FeaturedSection } from "@/components/home/FeaturedSection";
 import { PromoBanner } from "@/components/home/PromoBanner";
@@ -32,16 +35,25 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* 1. Hero Carousel */}
-      <HeroBanner banners={banners.hero} />
+      {/* 1. Luxury Editorial Brand Hero */}
+      <LuxuryEditorialHero brandName="Ligloo" categories={categories} />
 
-      {/* 2. Main Categories Grid */}
+      {/* 2. Infinite Editorial Runway Marquee */}
+      <EditorialTicker text="FIND YOUR CHOICE" />
+
+      {/* 3. Rethink Your Wardrobe (Matches screenshot) */}
+      <RethinkWardrobeSection />
+
+      {/* 4. Women & Men Editorial Split Showcase (Matches screenshot) */}
+      <GenderSplitBanner />
+
+      {/* 5. Main Categories Grid */}
       <CategoryGrid categories={categories} />
 
       {/* 3. Featured Products */}
       <FeaturedSection
-        title="Featured Selection"
-        subtitle="Handpicked pieces redefining modern luxury"
+        title="FIND YOUR SEASON EDIT"
+        subtitle="Rethink Your Wardrobe"
         viewAllLink="/shop?featured=true"
         products={featuredProducts}
       />

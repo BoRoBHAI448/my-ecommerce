@@ -15,7 +15,7 @@ export async function generateMetadata(props) {
 
   return {
     title: q ? `Search results for "${q}"` : "Search Products",
-    description: `Find products matching "${q}" at Apex Cart.`,
+    description: `Find products matching "${q}" at LIGGLO Atelier.`,
   };
 }
 

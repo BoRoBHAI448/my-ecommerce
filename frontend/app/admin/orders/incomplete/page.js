@@ -41,7 +41,7 @@ export default function AdminIncompleteOrdersPage() {
     const phone = item.phone.replace(/[^0-9]/g, "");
     const bdPhone = phone.startsWith("88") ? phone : `88${phone}`;
     const text = encodeURIComponent(
-      `Assalamu Alaikum ${item.customer_name}, Apex Cart theke bolchilam. Apni amader website e cart e kichu product rekhechen (${item.cart_items.map((i) => i.name).join(", ")}). Order ti confirm korte kono shohayota lagbe ki?`
+      `Assalamu Alaikum ${item.customer_name}, LIGGLO Atelier theke bolchilam. Apni amader website e cart e kichu product rekhechen (${item.cart_items.map((i) => i.name).join(", ")}). Order ti confirm korte kono shohayota lagbe ki?`
     );
     return `https://wa.me/${bdPhone}?text=${text}`;
   }

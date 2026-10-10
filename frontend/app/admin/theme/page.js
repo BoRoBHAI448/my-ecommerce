@@ -25,8 +25,8 @@ export default function AdminThemeSettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const [form, setForm] = useState({
-    name: store?.name || "Apex Cart",
-    tagline: store?.tagline || "Premium Everyday Essentials & Lifestyle",
+    name: store?.name || "LIGGLO Atelier",
+    tagline: store?.tagline || "Engineered For Motion & Modern Luxury",
     logo: store?.logo || "/logo.png",
     favicon: store?.favicon || "/favicon.ico",
     primaryColor: store?.colors?.primary || "#0f172a",

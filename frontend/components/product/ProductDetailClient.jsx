@@ -3,24 +3,82 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store-context";
-import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
-import { ProductView } from "@/components/product/ProductView";
-import { ReviewsSection } from "@/components/product/ReviewsSection";
-import { RelatedProducts } from "@/components/product/RelatedProducts";
+import { LookbookProductDetail } from "@/components/product/LookbookProductDetail";
+import { mockProducts } from "@/lib/api/mock/data";
+import { getStorefrontProductBySlug } from "@/lib/supabase/products";
 import { Button } from "@/components/ui/Button";
 import { Compass, Home, ShoppingBag, Loader2 } from "lucide-react";
 
 export function ProductDetailClient({ initialProduct, slug, initialRelated = [] }) {
   const { products: storeProducts } = useStore();
   const [mounted, setMounted] = useState(false);
+  const [supabaseProduct, setSupabaseProduct] = useState(null);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    async function loadFromSupabase() {
+      try {
+        const live = await getStorefrontProductBySlug(slug);
+        if (live) {
+          const rawImages = Array.isArray(live.images) && live.images.length > 0 ? live.images : [live.thumbnail || "/images/wardrobe-1.jpg"];
+          // Pad to 4 images for 2x2 grid if fewer
+          const paddedImages = rawImages.length >= 4 ? rawImages.slice(0, 4) : [
+            rawImages[0],
+            rawImages[1] || rawImages[0],
+            rawImages[2] || rawImages[0],
+            rawImages[3] || rawImages[0],
+          ];
 
-  // Find product from SSR or client-side store/localStorage
+          setSupabaseProduct({
+            id: String(live.id),
+            name: live.name,
+            slug: live.slug,
+            sku: live.sku || "FV-782-6F7D",
+            selling_price: Number(live.regular_price || 0),
+            discount_price: Number(live.selling_price || 0),
+            has_discount: Boolean(live.discount_price || live.regular_price > live.selling_price),
+            discount_badge:
+              live.discount_badge ||
+              (live.discount_price && live.regular_price
+                ? `${Math.round(
+                    ((live.regular_price - live.selling_price) /
+                      live.regular_price) *
+                      100
+                  )}%`
+                : null),
+            rating: Number(live.rating || 5.0),
+            review_count: Number(live.review_count || 0),
+            stock_count: Number(live.stock || 44),
+            in_stock: Boolean(live.in_stock),
+            short_description:
+              live.short_description || live.description?.slice(0, 200),
+            description: live.description,
+            image: live.thumbnail || live.images?.[0] || "/images/wardrobe-1.jpg",
+            images: paddedImages,
+            category: {
+              name: live.gender || "Dresses",
+              slug: (live.gender || "dresses").toLowerCase(),
+            },
+          });
+        }
+      } catch (err) {
+        console.warn("Supabase PDP product load notice:", err);
+      }
+    }
+    loadFromSupabase();
+  }, [slug]);
+
+  // Find product from Supabase, SSR, client-side store, mock catalogue, or localStorage
   const product = useMemo(() => {
+    if (supabaseProduct) return supabaseProduct;
     if (initialProduct) return initialProduct;
+
+    // Search in mockProducts directly (lookbook items)
+    const mockFound = mockProducts.find(
+      (p) => p.slug === slug || String(p.id) === String(slug)
+    );
+    if (mockFound) return mockFound;
+
     if (!mounted) return null;
 
     // Search in StoreContext
@@ -50,16 +108,18 @@ export function ProductDetailClient({ initialProduct, slug, initialRelated = [] 
     return null;
   }, [initialProduct, mounted, storeProducts, slug]);
 
-  // Related products fallback from store
+  // Related products fallback
   const relatedProducts = useMemo(() => {
     if (initialRelated && initialRelated.length > 0) return initialRelated;
     if (!product) return [];
 
-    const allProds = Array.isArray(storeProducts) && storeProducts.length > 0 ? storeProducts : [];
-    return allProds
-      .filter((p) => p.slug !== product.slug && p.category?.slug === product.category?.slug)
+    // Prioritize dresses / lookbook related items
+    const related = mockProducts
+      .filter((p) => p.slug !== product.slug)
       .slice(0, 4);
-  }, [initialRelated, product, storeProducts]);
+
+    return related;
+  }, [initialRelated, product]);
 
   // During SSR or first client render before mounting when initialProduct wasn't in SSR
   if (!product && !mounted) {
@@ -135,35 +195,15 @@ export function ProductDetailClient({ initialProduct, slug, initialRelated = [] 
   };
 
   return (
-    <div className="container-custom py-4 sm:py-6">
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-
-      <Breadcrumbs
-        items={[
-          { label: "Shop", href: "/shop" },
-          {
-            label: product.category?.name || "Category",
-            href: `/category/${product.category?.slug || ""}`,
-          },
-          { label: product.name },
-        ]}
+      <LookbookProductDetail
+        product={product}
+        relatedProducts={relatedProducts}
       />
-
-      {/* Main Interactive Product View */}
-      <ProductView product={product} />
-
-      {/* Reviews & Social Proof */}
-      <ReviewsSection
-        reviews={product.reviews || []}
-        rating={product.rating || 5}
-        count={product.review_count || 0}
-      />
-
-      {/* Related Complementary Products */}
-      {relatedProducts.length > 0 && <RelatedProducts products={relatedProducts} />}
-    </div>
+    </>
   );
 }

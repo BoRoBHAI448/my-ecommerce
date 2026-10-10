@@ -99,8 +99,26 @@ export function StoreProvider({ store: initialStore, initialCategories = [], ini
         try {
           const parsed = JSON.parse(savedProducts);
           if (Array.isArray(parsed) && parsed.length > 0) {
+            // Purge legacy mock items that were previously seeded into localStorage
+            const LEGACY_MOCK_SLUGS = new Set([
+              "veloce-carbon-trail-sneaker",
+              "monochrome-tailored-relaxed-trouser",
+              "heritage-oxford-commuter-pack",
+              "architectural-trench-overcoat",
+              "heavyweight-boxy-graphic-tee",
+              "apex-court-minimalist-runner",
+              "atelier-structured-leather-tote",
+              "airpulse-retro-90-sneakers",
+              "classic-leather-formal-shoes",
+              "women-s-leather-tote-bag",
+            ]);
+
+            const userCreatedOnly = parsed.filter(
+              (p) => p && !LEGACY_MOCK_SLUGS.has(p.slug)
+            );
+
             // Migrate: strip any leftover base64 data URIs (they bloat localStorage)
-            const cleaned = parsed.map((p) => ({
+            const cleaned = userCreatedOnly.map((p) => ({
               ...p,
               image: p.image?.startsWith("data:") ? "" : (p.image || ""),
               images: Array.isArray(p.images)
@@ -108,25 +126,18 @@ export function StoreProvider({ store: initialStore, initialCategories = [], ini
                 : [],
             }));
             setProducts(cleaned);
-            // Write back cleaned version so quota is freed
+            // Write back cleaned version so quota is freed and mock data is purged
             try {
               localStorage.setItem("store_custom_products", JSON.stringify(cleaned));
             } catch {}
           } else {
-            setProducts(mockProducts);
+            setProducts([]);
           }
         } catch {
-          // JSON parse error → reset to mockProducts
-          setProducts(mockProducts);
-          try {
-            localStorage.setItem("store_custom_products", JSON.stringify(mockProducts));
-          } catch {}
+          setProducts([]);
         }
       } else {
-        setProducts(mockProducts);
-        try {
-          localStorage.setItem("store_custom_products", JSON.stringify(mockProducts));
-        } catch {}
+        setProducts([]);
       }
 
 
@@ -209,28 +220,35 @@ export function StoreProvider({ store: initialStore, initialCategories = [], ini
 
   // Update products catalog live and persist to localStorage
   const updateProducts = useCallback((newProducts) => {
-    setProducts(newProducts);
-    try {
-      // Strip base64 data URIs to avoid localStorage quota exceeded errors
-      const productsForStorage = newProducts.map((p) => ({
-        ...p,
-        image: p.image?.startsWith("data:") ? "" : (p.image || ""),
-        images: Array.isArray(p.images)
-          ? p.images.filter((img) => img && !img.startsWith("data:"))
-          : [],
-      }));
-      localStorage.setItem("store_custom_products", JSON.stringify(productsForStorage));
-    } catch (err) {
-      console.warn("[StoreContext] localStorage save failed (quota?):", err);
+    setProducts((prev) => {
+      const resolved =
+        typeof newProducts === "function" ? newProducts(prev) : newProducts;
+      const safeArray = Array.isArray(resolved) ? resolved : [];
+
       try {
-        const minimalProducts = newProducts.map((p) => ({
+        // Strip base64 data URIs to avoid localStorage quota exceeded errors
+        const productsForStorage = safeArray.map((p) => ({
           ...p,
           image: p.image?.startsWith("data:") ? "" : (p.image || ""),
-          images: [],
+          images: Array.isArray(p.images)
+            ? p.images.filter((img) => img && !img.startsWith("data:"))
+            : [],
         }));
-        localStorage.setItem("store_custom_products", JSON.stringify(minimalProducts));
-      } catch {}
-    }
+        localStorage.setItem("store_custom_products", JSON.stringify(productsForStorage));
+      } catch (err) {
+        console.warn("[StoreContext] localStorage save failed (quota?):", err);
+        try {
+          const minimalProducts = safeArray.map((p) => ({
+            ...p,
+            image: p.image?.startsWith("data:") ? "" : (p.image || ""),
+            images: [],
+          }));
+          localStorage.setItem("store_custom_products", JSON.stringify(minimalProducts));
+        } catch {}
+      }
+
+      return safeArray;
+    });
   }, []);
 
   // Update brands list live and persist to localStorage

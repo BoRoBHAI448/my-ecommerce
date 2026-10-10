@@ -8,8 +8,8 @@ export async function generateMetadata() {
   const storeRes = await getStore();
   const store = storeRes?.data;
   return {
-    title: `Contact Us | ${store?.name || "Apex Cart"}`,
-    description: `Get in touch with customer support at ${store?.name || "Apex Cart"}.`,
+    title: `Contact Us | ${store?.name || "LIGGLO Atelier"}`,
+    description: `Get in touch with customer support at ${store?.name || "LIGGLO Atelier"}.`,
   };
 }
 

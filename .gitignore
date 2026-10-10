@@ -44,3 +44,7 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Captures and local recordings
+*.webm
+fullpage_snapshot_*.png

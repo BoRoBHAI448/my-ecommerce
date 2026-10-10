@@ -129,7 +129,7 @@ export default function AdminOrderDetailPage({ params }) {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-slate-900">
-              APEX CART
+              LIGGLO ATELIER
             </h1>
             <p className="text-xs text-slate-500 mt-1">
               House 42, Road 11, Banani, Dhaka-1213, Bangladesh

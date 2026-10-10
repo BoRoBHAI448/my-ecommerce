@@ -5,7 +5,7 @@ export async function generateMetadata() {
   const storeRes = await getStore();
   const store = storeRes?.data;
   return {
-    title: `Terms & Conditions | ${store?.name || "Apex Cart"}`,
+    title: `Terms & Conditions | ${store?.name || "LIGGLO Atelier"}`,
     description: "Terms and conditions of service for customer orders and browsing.",
   };
 }
@@ -24,7 +24,7 @@ export default async function TermsPage() {
 
       <div className="p-6 sm:p-8 rounded-theme bg-surface border border-border/80 shadow-2xs space-y-4 text-xs sm:text-sm text-text-muted leading-relaxed">
         <p>
-          Welcome to <strong>{store?.name || "Apex Cart"}</strong>. By browsing our website and placing orders, you agree to comply with and be bound by the following terms of service.
+          Welcome to <strong>{store?.name || "LIGGLO Atelier"}</strong>. By browsing our website and placing orders, you agree to comply with and be bound by the following terms of service.
         </p>
 
         <h3 className="font-bold text-text text-sm pt-2">1. Product Pricing & Availability</h3>

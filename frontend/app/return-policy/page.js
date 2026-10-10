@@ -6,7 +6,7 @@ export async function generateMetadata() {
   const storeRes = await getStore();
   const store = storeRes?.data;
   return {
-    title: `Return & Exchange Policy | ${store?.name || "Apex Cart"}`,
+    title: `Return & Exchange Policy | ${store?.name || "LIGGLO Atelier"}`,
     description: "Our 7-day hassle-free return and exchange policy explained.",
   };
 }
@@ -27,7 +27,7 @@ export default async function ReturnPolicyPage() {
           7-Day Easy Exchange Policy
         </h1>
         <p className="text-xs sm:text-sm text-text-muted max-w-md mx-auto">
-          We want you to be completely satisfied with your purchase at {store?.name || "Apex Cart"}.
+          We want you to be completely satisfied with your purchase at {store?.name || "LIGGLO Atelier"}.
         </p>
       </div>
 

@@ -6,7 +6,7 @@ import { Package, ExternalLink, ArrowRight } from "lucide-react";
 
 export const metadata = {
   title: "My Orders",
-  description: "View and track your previous purchases at Apex Cart.",
+  description: "View and track your previous purchases at LIGGLO Atelier.",
 };
 
 export default function AccountOrdersPage() {

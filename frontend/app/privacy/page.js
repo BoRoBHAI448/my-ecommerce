@@ -5,7 +5,7 @@ export async function generateMetadata() {
   const storeRes = await getStore();
   const store = storeRes?.data;
   return {
-    title: `Privacy Policy | ${store?.name || "Apex Cart"}`,
+    title: `Privacy Policy | ${store?.name || "LIGGLO Atelier"}`,
     description: "Read our privacy policy regarding data collection and protection.",
   };
 }
@@ -24,7 +24,7 @@ export default async function PrivacyPage() {
 
       <div className="p-6 sm:p-8 rounded-theme bg-surface border border-border/80 shadow-2xs space-y-4 text-xs sm:text-sm text-text-muted leading-relaxed">
         <p>
-          At <strong>{store?.name || "Apex Cart"}</strong>, we take the confidentiality and safety of your personal information very seriously. This policy outlines how your information is gathered and protected.
+          At <strong>{store?.name || "LIGGLO Atelier"}</strong>, we take the confidentiality and safety of your personal information very seriously. This policy outlines how your information is gathered and protected.
         </p>
 
         <h3 className="font-bold text-text text-sm pt-2">1. Information We Collect</h3>

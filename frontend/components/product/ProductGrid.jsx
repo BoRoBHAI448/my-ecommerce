@@ -47,6 +47,11 @@ export function ProductGrid({
       } catch {}
     }
 
+    // If on homepage and specific initial products were passed, respect that slice
+    if ((pathname === "/" || !pathname) && initialProducts?.length > 0) {
+      return initialProducts;
+    }
+
     // If no local data at all, fall back to server-side initial products
     if (candidateList.length === 0) {
       return initialProducts;
