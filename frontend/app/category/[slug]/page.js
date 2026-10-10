@@ -9,16 +9,33 @@ import { Pagination } from "@/components/shop/Pagination";
 
 export const instant = false;
 
+function formatSlugToTitle(slug) {
+  if (!slug) return "";
+  const decoded = decodeURIComponent(slug);
+  const formatted = decoded.replace(/-s\b/gi, "'s");
+  return formatted
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export async function generateMetadata(props) {
   const params = await props.params;
+  const slug = params.slug;
   const categoriesRes = await getCategories();
-  const category = categoriesRes?.data?.find((c) => c.slug === params.slug);
+  const categories = categoriesRes?.data || [];
+  const category = categories.find((c) => {
+    if (!c?.slug) return false;
+    const cleanC = c.slug.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return c.slug === slug || c.slug === decodeURIComponent(slug) || cleanC === cleanSlug;
+  });
 
-  if (!category) return { title: "Category Not Found" };
+  const titleName = category?.name || formatSlugToTitle(slug);
 
   return {
-    title: `${category.name} Collection`,
-    description: `Explore premium ${category.name} styles and collections.`,
+    title: `${titleName} Collection`,
+    description: `Explore premium ${titleName} styles and collections.`,
   };
 }
 
@@ -48,11 +65,14 @@ export default async function CategoryPage(props) {
   ]);
 
   const categories = categoriesRes?.data || [];
-  const currentCategory = categories.find((c) => c.slug === slug);
+  const currentCategory = categories.find((c) => {
+    if (!c?.slug) return false;
+    const cleanC = c.slug.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return c.slug === slug || c.slug === decodeURIComponent(slug) || cleanC === cleanSlug;
+  });
 
-  if (!currentCategory && productsRes?.data?.length === 0) {
-    notFound();
-  }
+  const categoryTitle = currentCategory?.name || formatSlugToTitle(slug);
 
   const products = productsRes?.data || [];
   const meta = productsRes?.meta || { current_page: 1, last_page: 1, total: 0 };
@@ -63,13 +83,13 @@ export default async function CategoryPage(props) {
       <Breadcrumbs
         items={[
           { label: "Shop", href: "/shop" },
-          { label: currentCategory?.name || slug },
+          { label: categoryTitle },
         ]}
       />
 
       <div className="py-2 mb-4">
         <h1 className="text-2xl sm:text-3xl font-black text-text tracking-tight">
-          {currentCategory?.name || slug}
+          {categoryTitle}
         </h1>
         {currentCategory?.children?.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">
@@ -103,7 +123,7 @@ export default async function CategoryPage(props) {
           <ProductGrid
             products={products}
             columns={3}
-            emptyTitle={`No products in ${currentCategory?.name || "this category"}`}
+            emptyTitle={`No products in ${categoryTitle}`}
             emptyMessage="There are currently no items available in this category with your active filters."
           />
 

@@ -30,7 +30,7 @@ import {
 export default function AdminProductsPage() {
   const { products: storeProducts, categories: storeCategories, brands: storeBrands, updateProducts } = useStore();
   const [mounted, setMounted] = useState(false);
-  const [products, setProducts] = useState(mockProducts);
+  const [localOverride, setLocalOverride] = useState(null);
 
   const categoriesList = mounted && Array.isArray(storeCategories) ? storeCategories : mockCategories;
   const brandsList = mounted && Array.isArray(storeBrands) ? storeBrands : mockBrands;
@@ -39,11 +39,32 @@ export default function AdminProductsPage() {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (mounted && Array.isArray(storeProducts)) {
-      setProducts(storeProducts);
+  // Compute effective products list reactively
+  const products = useMemo(() => {
+    if (!mounted) {
+      return mockProducts;
     }
-  }, [mounted, storeProducts]);
+
+    if (localOverride !== null) return localOverride;
+
+    if (Array.isArray(storeProducts) && storeProducts.length > 0) {
+      return storeProducts;
+    }
+
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("store_custom_products");
+        if (saved !== null) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+
+    return Array.isArray(storeProducts) ? storeProducts : mockProducts;
+  }, [mounted, localOverride, storeProducts]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -55,9 +76,32 @@ export default function AdminProductsPage() {
   const [deleteModalProduct, setDeleteModalProduct] = useState(null);
 
   function saveAndSyncProducts(updated) {
-    setProducts(updated);
+    setLocalOverride(updated);
     if (typeof updateProducts === "function") {
       updateProducts(updated);
+    }
+    if (typeof window !== "undefined") {
+      try {
+        // Strip base64 data URIs to prevent localStorage quota exceeded errors
+        const productsForStorage = updated.map((p) => ({
+          ...p,
+          image: p.image?.startsWith("data:") ? "" : (p.image || ""),
+          images: Array.isArray(p.images)
+            ? p.images.filter((img) => img && !img.startsWith("data:"))
+            : [],
+        }));
+        localStorage.setItem("store_custom_products", JSON.stringify(productsForStorage));
+      } catch (err) {
+        console.warn("localStorage save failed:", err);
+        try {
+          const minimalProducts = updated.map((p) => ({
+            ...p,
+            image: p.image?.startsWith("data:") ? "" : (p.image || ""),
+            images: [],
+          }));
+          localStorage.setItem("store_custom_products", JSON.stringify(minimalProducts));
+        } catch {}
+      }
     }
   }
 

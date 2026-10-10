@@ -58,8 +58,8 @@ const StoreContext = createContext(null);
 export function StoreProvider({ store: initialStore, initialCategories = [], initialProducts = [], children }) {
   const [customStore, setCustomStore] = useState(initialStore || null);
   const [categories, setCategories] = useState(initialCategories || []);
-  const [products, setProducts] = useState(initialProducts?.length ? initialProducts : mockProducts);
-  const [brands, setBrands] = useState(mockBrands);
+  const [products, setProducts] = useState(initialProducts || []);
+  const [brands, setBrands] = useState([]);
   const [coupons, setCoupons] = useState(defaultCoupons);
 
   // Keep a ref to the initial props so the mount-only effect can access them
@@ -96,12 +96,50 @@ export function StoreProvider({ store: initialStore, initialCategories = [], ini
 
       const savedProducts = localStorage.getItem("store_custom_products");
       if (savedProducts !== null) {
-        setProducts(JSON.parse(savedProducts));
+        try {
+          const parsed = JSON.parse(savedProducts);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Migrate: strip any leftover base64 data URIs (they bloat localStorage)
+            const cleaned = parsed.map((p) => ({
+              ...p,
+              image: p.image?.startsWith("data:") ? "" : (p.image || ""),
+              images: Array.isArray(p.images)
+                ? p.images.filter((img) => img && !img.startsWith("data:"))
+                : [],
+            }));
+            setProducts(cleaned);
+            // Write back cleaned version so quota is freed
+            try {
+              localStorage.setItem("store_custom_products", JSON.stringify(cleaned));
+            } catch {}
+          } else {
+            setProducts(mockProducts);
+          }
+        } catch {
+          // JSON parse error → reset to mockProducts
+          setProducts(mockProducts);
+          try {
+            localStorage.setItem("store_custom_products", JSON.stringify(mockProducts));
+          } catch {}
+        }
+      } else {
+        setProducts(mockProducts);
+        try {
+          localStorage.setItem("store_custom_products", JSON.stringify(mockProducts));
+        } catch {}
       }
+
 
       const savedBrands = localStorage.getItem("store_custom_brands");
       if (savedBrands !== null) {
-        setBrands(JSON.parse(savedBrands));
+        const parsedB = JSON.parse(savedBrands);
+        if (Array.isArray(parsedB) && parsedB.length > 0) {
+          setBrands(parsedB);
+        } else {
+          setBrands(mockBrands);
+        }
+      } else {
+        setBrands(mockBrands);
       }
 
       const savedCoupons = localStorage.getItem("store_custom_coupons");
@@ -173,9 +211,25 @@ export function StoreProvider({ store: initialStore, initialCategories = [], ini
   const updateProducts = useCallback((newProducts) => {
     setProducts(newProducts);
     try {
-      localStorage.setItem("store_custom_products", JSON.stringify(newProducts));
-    } catch {
-      // Ignore quota errors
+      // Strip base64 data URIs to avoid localStorage quota exceeded errors
+      const productsForStorage = newProducts.map((p) => ({
+        ...p,
+        image: p.image?.startsWith("data:") ? "" : (p.image || ""),
+        images: Array.isArray(p.images)
+          ? p.images.filter((img) => img && !img.startsWith("data:"))
+          : [],
+      }));
+      localStorage.setItem("store_custom_products", JSON.stringify(productsForStorage));
+    } catch (err) {
+      console.warn("[StoreContext] localStorage save failed (quota?):", err);
+      try {
+        const minimalProducts = newProducts.map((p) => ({
+          ...p,
+          image: p.image?.startsWith("data:") ? "" : (p.image || ""),
+          images: [],
+        }));
+        localStorage.setItem("store_custom_products", JSON.stringify(minimalProducts));
+      } catch {}
     }
   }, []);
 

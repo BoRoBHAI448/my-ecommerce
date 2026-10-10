@@ -293,7 +293,7 @@ export default function AdminOrderCreatePage() {
                   <option value="">Default Variant</option>
                   {currentProduct?.variants?.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {Object.values(v.attributes).join(" - ")} (Stock: {v.stock_quantity})
+                      {v.attributes ? Object.values(v.attributes).join(" - ") : (v.color || v.size ? `${v.color || ""} ${v.size || ""}`.trim() : v.sku || "Variant")} (Stock: {v.stock_quantity ?? 0})
                     </option>
                   ))}
                 </select>

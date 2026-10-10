@@ -9,16 +9,32 @@ import { Pagination } from "@/components/shop/Pagination";
 
 export const instant = false;
 
+function formatSlugToTitle(slug) {
+  if (!slug) return "";
+  const decoded = decodeURIComponent(slug);
+  return decoded
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export async function generateMetadata(props) {
   const params = await props.params;
+  const slug = params.slug;
   const brandsRes = await getBrands();
-  const brand = brandsRes?.data?.find((b) => b.slug === params.slug);
+  const brands = brandsRes?.data || [];
+  const brand = brands.find((b) => {
+    if (!b?.slug) return false;
+    const cleanB = b.slug.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return b.slug === slug || b.slug === decodeURIComponent(slug) || cleanB === cleanSlug;
+  });
 
-  if (!brand) return { title: "Brand Not Found" };
+  const titleName = brand?.name || formatSlugToTitle(slug);
 
   return {
-    title: `${brand.name} Products`,
-    description: `Shop authentic collection from ${brand.name}.`,
+    title: `${titleName} Products`,
+    description: `Shop authentic collection from ${titleName}.`,
   };
 }
 
@@ -48,11 +64,14 @@ export default async function BrandPage(props) {
   ]);
 
   const brands = brandsRes?.data || [];
-  const currentBrand = brands.find((b) => b.slug === slug);
+  const currentBrand = brands.find((b) => {
+    if (!b?.slug) return false;
+    const cleanB = b.slug.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return b.slug === slug || b.slug === decodeURIComponent(slug) || cleanB === cleanSlug;
+  });
 
-  if (!currentBrand && productsRes?.data?.length === 0) {
-    notFound();
-  }
+  const brandTitle = currentBrand?.name || formatSlugToTitle(slug);
 
   const products = productsRes?.data || [];
   const meta = productsRes?.meta || { current_page: 1, last_page: 1, total: 0 };
@@ -63,16 +82,16 @@ export default async function BrandPage(props) {
       <Breadcrumbs
         items={[
           { label: "Shop", href: "/shop" },
-          { label: currentBrand?.name || slug },
+          { label: brandTitle },
         ]}
       />
 
       <div className="py-2 mb-4">
         <h1 className="text-2xl sm:text-3xl font-black text-text tracking-tight">
-          {currentBrand?.name || slug}
+          {brandTitle}
         </h1>
         <p className="text-xs sm:text-sm text-text-muted mt-1">
-          Explore products crafted by {currentBrand?.name || "this brand"}
+          Explore products crafted by {brandTitle}
         </p>
       </div>
 
@@ -94,7 +113,7 @@ export default async function BrandPage(props) {
           <ProductGrid
             products={products}
             columns={3}
-            emptyTitle={`No products for ${currentBrand?.name || "this brand"}`}
+            emptyTitle={`No products for ${brandTitle}`}
             emptyMessage="There are currently no products available from this brand with your active filters."
           />
 

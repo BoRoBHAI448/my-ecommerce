@@ -34,10 +34,10 @@ export async function getCategories() {
   }
   try {
     const res = await apiClient("/categories");
-    return res || { success: true, data: [] };
+    return (res && res.data && res.data.length > 0) ? res : { success: true, data: mockCategories };
   } catch (err) {
-    console.error("Failed to fetch categories from backend:", err);
-    return { success: true, data: [] };
+    console.error("Failed to fetch categories from backend, using fallback:", err);
+    return { success: true, data: mockCategories };
   }
 }
 
@@ -53,7 +53,7 @@ export async function getBanners() {
     return res || { success: true, data: mockBanners };
   } catch (err) {
     console.error("Failed to fetch banners from backend:", err);
-    return { success: true, data: { hero: [], promo: [] } };
+    return { success: true, data: mockBanners };
   }
 }
 
@@ -66,10 +66,10 @@ export async function getBrands() {
   }
   try {
     const res = await apiClient("/brands");
-    return res || { success: true, data: [] };
+    return (res && res.data && res.data.length > 0) ? res : { success: true, data: mockBrands };
   } catch (err) {
-    console.error("Failed to fetch brands from backend:", err);
-    return { success: true, data: [] };
+    console.error("Failed to fetch brands from backend, using fallback:", err);
+    return { success: true, data: mockBrands };
   }
 }
 
@@ -78,13 +78,16 @@ function getMockProductsList() {
     try {
       const saved = localStorage.getItem("store_custom_products");
       if (saved !== null) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       }
     } catch {
       // ignore
     }
   }
-  return [];
+  return mockProducts;
 }
 
 /**
@@ -118,11 +121,31 @@ export async function getProducts(params = {}) {
     }
 
     if (category) {
-      list = list.filter((p) => p.category && p.category.slug === category);
+      const cleanCatParam = decodeURIComponent(category).toLowerCase().replace(/[^a-z0-9]/g, "");
+      list = list.filter((p) => {
+        if (!p.category) return false;
+        const catSlug = (p.category.slug || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const catName = (p.category.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        return (
+          p.category.slug === category ||
+          catSlug === cleanCatParam ||
+          catName === cleanCatParam
+        );
+      });
     }
 
     if (brand) {
-      list = list.filter((p) => p.brand && p.brand.slug === brand);
+      const cleanBrandParam = decodeURIComponent(brand).toLowerCase().replace(/[^a-z0-9]/g, "");
+      list = list.filter((p) => {
+        if (!p.brand) return false;
+        const brandSlug = (p.brand.slug || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const brandName = (p.brand.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        return (
+          p.brand.slug === brand ||
+          brandSlug === cleanBrandParam ||
+          brandName === cleanBrandParam
+        );
+      });
     }
 
     if (featured === true || featured === "true" || featured === "1") {
@@ -161,7 +184,7 @@ export async function getProducts(params = {}) {
     };
   }
 
-  // Real API path
+  // Real API path with fallback
   const searchParams = new URLSearchParams();
   if (search) searchParams.set("q", search);
   if (category) searchParams.set("category", category);
@@ -175,10 +198,24 @@ export async function getProducts(params = {}) {
 
   try {
     const res = await apiClient(`/products?${searchParams.toString()}`);
-    return res || { success: true, data: [], meta: { current_page: 1, total: 0 } };
+    if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+      return res;
+    }
+    // Fallback if API returned empty array or mock mode fallback
+    const mockList = getMockProductsList();
+    return {
+      success: true,
+      data: mockList,
+      meta: { current_page: 1, per_page: 12, total: mockList.length, last_page: 1 },
+    };
   } catch (err) {
-    console.error("Failed to fetch products from backend:", err);
-    return { success: true, data: [], meta: { current_page: 1, total: 0 } };
+    console.error("Failed to fetch products from backend, using fallback:", err);
+    const mockList = getMockProductsList();
+    return {
+      success: true,
+      data: mockList,
+      meta: { current_page: 1, per_page: 12, total: mockList.length, last_page: 1 },
+    };
   }
 }
 
